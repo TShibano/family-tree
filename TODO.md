@@ -19,12 +19,12 @@
 
 ## Phase 3: 家系図グラフ構築
 
-- [ ] `graph_builder.py` - Family データから世代（depth）を算出するロジック
-- [ ] `graph_builder.py` - 親子関係・婚姻関係のグラフ構造構築
-- [ ] `graph_builder.py` - Graphviz の Digraph オブジェクト生成
-- [ ] `graph_builder.py` - ノードのスタイル設定（性別による色分け、ラベル表示）
-- [ ] `graph_builder.py` - エッジのスタイル設定（婚姻=横線、親子=縦線）
-- [ ] `tests/test_graph_builder.py` - グラフ構築のユニットテスト
+- [x] `graph_builder.py` - Family データから世代（depth）を算出するロジック
+- [x] `graph_builder.py` - 親子関係・婚姻関係のグラフ構造構築
+- [x] `graph_builder.py` - Graphviz の Digraph オブジェクト生成
+- [x] `graph_builder.py` - ノードのスタイル設定（性別による色分け、ラベル表示）
+- [x] `graph_builder.py` - エッジのスタイル設定（婚姻=横線、親子=縦線）
+- [x] `tests/test_graph_builder.py` - グラフ構築のユニットテスト
 
 ## Phase 4: 画像出力（PNG/SVG）
 
