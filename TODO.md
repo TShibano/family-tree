@@ -44,11 +44,11 @@
 
 ## Phase 6: アニメーション動画出力
 
-- [ ] `animator.py` - 世代ごとにフレーム画像を生成するロジック
-- [ ] `animator.py` - moviepy を使って連番画像からMP4を生成
-- [ ] `animator.py` - フェードイン等のトランジション演出
-- [ ] `tests/test_animator.py` - アニメーション生成のユニットテスト
-- [ ] サンプルCSVを使った動画出力の目視確認
+- [x] `animator.py` - 世代ごとにフレーム画像を生成するロジック
+- [x] `animator.py` - moviepy を使って連番画像からMP4を生成
+- [x] `animator.py` - フェードイン等のトランジション演出
+- [x] `tests/test_animator.py` - アニメーション生成のユニットテスト
+- [x] サンプルCSVを使った動画出力の目視確認
 
 ## Phase 7: 仕上げ
 

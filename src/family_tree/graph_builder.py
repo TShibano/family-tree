@@ -186,6 +186,96 @@ def build_graph(family: Family) -> graphviz.Digraph:
     return dot
 
 
+def build_graph_up_to_generation(
+    family: Family, max_gen: int
+) -> graphviz.Digraph:
+    """指定した世代までの人物を含む Graphviz Digraph を生成する。"""
+    generations = compute_generations(family)
+    visible_ids = {pid for pid, gen in generations.items() if gen <= max_gen}
+
+    dot = graphviz.Digraph(
+        "family_tree",
+        graph_attr={
+            "rankdir": "TB",
+            "splines": "polyline",
+            "nodesep": "0.8",
+            "ranksep": "1.0",
+        },
+        node_attr={
+            "fontname": "Helvetica",
+            "fontsize": "11",
+            "shape": "box",
+            "style": "filled,rounded",
+        },
+        edge_attr={
+            "fontname": "Helvetica",
+        },
+    )
+
+    for person in family.persons.values():
+        if person.id not in visible_ids:
+            continue
+        dot.node(
+            str(person.id),
+            label=_format_label(person),
+            fillcolor=_get_node_color(person),
+        )
+
+    processed_couples: set[tuple[int, int]] = set()
+
+    for person in family.persons.values():
+        if person.id not in visible_ids or person.spouse_id is None:
+            continue
+        if person.spouse_id not in visible_ids:
+            continue
+
+        couple = tuple(sorted((person.id, person.spouse_id)))
+        if couple in processed_couples:
+            continue
+        processed_couples.add(couple)  # type: ignore[arg-type]
+
+        mid_node = f"couple_{couple[0]}_{couple[1]}"
+        dot.node(mid_node, label="", shape="point", width="0.01", height="0.01")
+
+        with dot.subgraph() as s:
+            s.attr(rank="same")
+            s.node(str(couple[0]))
+            s.node(mid_node)
+            s.node(str(couple[1]))
+
+        dot.edge(str(couple[0]), mid_node, dir="none", color="darkred", penwidth="2")
+        dot.edge(mid_node, str(couple[1]), dir="none", color="darkred", penwidth="2")
+
+        children = [
+            c for c in _get_couple_children(family, couple[0], couple[1])
+            if c.id in visible_ids
+        ]
+        for child in children:
+            dot.edge(mid_node, str(child.id), color="gray30")
+
+    couple_children = _get_all_couple_children_ids(family, processed_couples)
+    for person in family.persons.values():
+        if person.id not in visible_ids:
+            continue
+        if person.parent_ids and person.id not in couple_children:
+            for pid in person.parent_ids:
+                if pid in visible_ids:
+                    dot.edge(str(pid), str(person.id), color="gray30")
+
+    gen_groups: dict[int, list[int]] = {}
+    for pid, gen in generations.items():
+        if pid in visible_ids:
+            gen_groups.setdefault(gen, []).append(pid)
+
+    for gen in sorted(gen_groups):
+        with dot.subgraph() as s:
+            s.attr(rank="same")
+            for pid in gen_groups[gen]:
+                s.node(str(pid))
+
+    return dot
+
+
 def _get_couple_children(
     family: Family, parent1_id: int, parent2_id: int
 ) -> list[Person]:

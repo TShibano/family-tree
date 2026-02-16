@@ -38,9 +38,12 @@ def render(input_path: str, output_path: str, fmt: str) -> None:
 @click.option("--output", "output_path", required=True, help="出力MP4ファイルパス")
 def animate(input_path: str, output_path: str) -> None:
     """家系図をアニメーション動画として出力する"""
+    from family_tree.animator import create_animation
+
     try:
         family = parse_csv(input_path)
     except CsvParseError as e:
         raise click.ClickException(str(e))
 
-    click.echo(f"アニメーション生成は未実装です: {input_path} -> {output_path}")
+    result = create_animation(family, output_path)
+    click.echo(f"出力しました: {result}")
