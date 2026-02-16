@@ -36,11 +36,11 @@
 
 ## Phase 5: CLIインターフェース
 
-- [ ] `main.py` - click を使った CLI 構築
-- [ ] `main.py` - `render` サブコマンド（--input, --output, --format オプション）
-- [ ] `main.py` - `animate` サブコマンド（--input, --output オプション）
-- [ ] `pyproject.toml` - `[project.scripts]` でエントリーポイント設定
-- [ ] CLI の動作確認
+- [x] `main.py` - click を使った CLI 構築
+- [x] `main.py` - `render` サブコマンド（--input, --output, --format オプション）
+- [x] `main.py` - `animate` サブコマンド（--input, --output オプション）
+- [x] `pyproject.toml` - `[project.scripts]` でエントリーポイント設定
+- [x] CLI の動作確認
 
 ## Phase 6: アニメーション動画出力
 
