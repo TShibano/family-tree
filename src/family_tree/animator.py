@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from moviepy import CompositeVideoClip, ImageClip, vfx
+from moviepy import ImageClip, concatenate_videoclips
 from PIL import Image
 
 from family_tree.graph_builder import (
@@ -15,8 +15,6 @@ from family_tree.renderer import render_graph
 
 # 各シーンの表示秒数
 SCENE_DURATION = 2.0
-# フェードイン秒数
-FADE_DURATION = 0.8
 # 動画の FPS
 FPS = 24
 
@@ -45,18 +43,16 @@ def create_animation(
     family: Family,
     output_path: str | Path,
     scene_duration: float = SCENE_DURATION,
-    fade_duration: float = FADE_DURATION,
     fps: int = FPS,
 ) -> Path:
     """家系図のアニメーション動画（MP4）を生成する。
 
-    シーン単位でフェードインしながら展開される。
+    シーン単位でカット切り替えで展開される。
 
     Args:
         family: Family オブジェクト
         output_path: 出力MP4ファイルパス
         scene_duration: 各シーンの表示秒数
-        fade_duration: フェードインの秒数
         fps: 動画のフレームレート
 
     Returns:
@@ -92,16 +88,10 @@ def create_animation(
             else:
                 img.close()
 
-            start_time = i * scene_duration
-            clip = (
-                ImageClip(str(frame_path))
-                .with_duration(scene_duration + fade_duration)
-                .with_start(start_time)
-                .with_effects([vfx.CrossFadeIn(fade_duration)])
-            )
+            clip = ImageClip(str(frame_path)).with_duration(scene_duration)
             clips.append(clip)
 
-        video = CompositeVideoClip(clips, size=(target_w, target_h))
+        video = concatenate_videoclips(clips, method="compose")
         video.write_videofile(
             str(output_path),
             fps=fps,

@@ -50,7 +50,7 @@ class TestCreateAnimation:
     def test_creates_mp4(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         output = tmp_path / "test.mp4"
-        result = create_animation(family, output, scene_duration=1.0, fade_duration=0.5)
+        result = create_animation(family, output, scene_duration=1.0)
         assert result == output
         assert output.exists()
         assert output.stat().st_size > 0
@@ -58,14 +58,14 @@ class TestCreateAnimation:
     def test_auto_create_directory(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         output = tmp_path / "nested" / "dir" / "test.mp4"
-        create_animation(family, output, scene_duration=1.0, fade_duration=0.5)
+        create_animation(family, output, scene_duration=1.0)
         assert output.exists()
 
     def test_sample_csv_animation(self, tmp_path: Path) -> None:
         """examples/sample.csv からアニメーションを正常に生成できる。"""
         family = parse_csv("examples/sample.csv")
         output = tmp_path / "sample.mp4"
-        create_animation(family, output, scene_duration=1.0, fade_duration=0.5)
+        create_animation(family, output, scene_duration=1.0)
         assert output.exists()
         assert output.stat().st_size > 0
 
@@ -76,5 +76,5 @@ class TestCreateAnimation:
             Person(id=1, name="単独者", birth_date=date(2000, 1, 1), sex=Sex.M)
         )
         output = tmp_path / "single.mp4"
-        create_animation(family, output, scene_duration=1.0, fade_duration=0.5)
+        create_animation(family, output, scene_duration=1.0)
         assert output.exists()
