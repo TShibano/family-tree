@@ -28,11 +28,11 @@
 
 ## Phase 4: 画像出力（PNG/SVG）
 
-- [ ] `renderer.py` - Graphviz グラフからPNG出力
-- [ ] `renderer.py` - Graphviz グラフからSVG出力
-- [ ] `renderer.py` - 出力先ディレクトリの自動作成
-- [ ] `tests/test_renderer.py` - 画像出力のユニットテスト
-- [ ] サンプルCSVを使った出力結果の目視確認・レイアウト調整
+- [x] `renderer.py` - Graphviz グラフからPNG出力
+- [x] `renderer.py` - Graphviz グラフからSVG出力
+- [x] `renderer.py` - 出力先ディレクトリの自動作成
+- [x] `tests/test_renderer.py` - 画像出力のユニットテスト
+- [x] サンプルCSVを使った出力結果の目視確認・レイアウト調整
 
 ## Phase 5: CLIインターフェース
 

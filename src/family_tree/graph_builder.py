@@ -84,7 +84,7 @@ def build_graph(family: Family) -> graphviz.Digraph:
         "family_tree",
         graph_attr={
             "rankdir": "TB",
-            "splines": "ortho",
+            "splines": "polyline",
             "nodesep": "0.8",
             "ranksep": "1.0",
         },
