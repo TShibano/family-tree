@@ -10,12 +10,12 @@
 
 ## Phase 2: データモデル & CSV読み込み
 
-- [ ] `models.py` - Person データクラス定義（必須フィールド + メタデータ辞書で拡張対応）
-- [ ] `models.py` - Family データクラス定義（Person集合 + 関係性管理）
-- [ ] `csv_parser.py` - CSV読み込み処理の実装
-- [ ] `csv_parser.py` - バリデーション（必須カラム存在確認、ID重複チェック、参照整合性）
-- [ ] `csv_parser.py` - 未知カラムをメタデータとして保持する処理
-- [ ] `tests/test_csv_parser.py` - CSV読み込みのユニットテスト
+- [x] `models.py` - Person データクラス定義（必須フィールド + メタデータ辞書で拡張対応）
+- [x] `models.py` - Family データクラス定義（Person集合 + 関係性管理）
+- [x] `csv_parser.py` - CSV読み込み処理の実装
+- [x] `csv_parser.py` - バリデーション（必須カラム存在確認、ID重複チェック、参照整合性）
+- [x] `csv_parser.py` - 未知カラムをメタデータとして保持する処理
+- [x] `tests/test_csv_parser.py` - CSV読み込みのユニットテスト
 
 ## Phase 3: 家系図グラフ構築
 
