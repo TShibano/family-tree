@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import deque
 
 import graphviz
 
@@ -37,9 +36,7 @@ def compute_generations(family: Family) -> dict[int, int]:
                 continue
             # 全ての親の世代が確定しているか確認
             parent_gens = [
-                generations[pid]
-                for pid in person.parent_ids
-                if pid in generations
+                generations[pid] for pid in person.parent_ids if pid in generations
             ]
             if len(parent_gens) != len(person.parent_ids):
                 continue
@@ -186,9 +183,7 @@ def build_graph(family: Family) -> graphviz.Digraph:
     return dot
 
 
-def build_graph_up_to_generation(
-    family: Family, max_gen: int
-) -> graphviz.Digraph:
+def build_graph_up_to_generation(family: Family, max_gen: int) -> graphviz.Digraph:
     """指定した世代までの人物を含む Graphviz Digraph を生成する。"""
     generations = compute_generations(family)
     visible_ids = {pid for pid, gen in generations.items() if gen <= max_gen}
@@ -247,7 +242,8 @@ def build_graph_up_to_generation(
         dot.edge(mid_node, str(couple[1]), dir="none", color="darkred", penwidth="2")
 
         children = [
-            c for c in _get_couple_children(family, couple[0], couple[1])
+            c
+            for c in _get_couple_children(family, couple[0], couple[1])
             if c.id in visible_ids
         ]
         for child in children:

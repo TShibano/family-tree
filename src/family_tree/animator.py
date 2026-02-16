@@ -20,9 +20,7 @@ FADE_DURATION = 1.0
 FPS = 24
 
 
-def generate_generation_frames(
-    family: Family, tmp_dir: Path
-) -> list[Path]:
+def generate_generation_frames(family: Family, tmp_dir: Path) -> list[Path]:
     """世代ごとにフレーム画像（PNG）を生成する。
 
     Returns:

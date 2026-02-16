@@ -52,7 +52,7 @@
 
 ## Phase 7: 仕上げ
 
-- [ ] ruff format / ruff check で全体のコード品質チェック
-- [ ] mypy で型チェック通過確認
-- [ ] 全テスト通過確認
-- [ ] README.md 作成（使い方・CSV仕様の説明）
+- [x] ruff format / ruff check で全体のコード品質チェック
+- [x] mypy で型チェック通過確認
+- [x] 全テスト通過確認
+- [x] README.md 作成（使い方・CSV仕様の説明）

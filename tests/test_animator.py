@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-import pytest
 
 from family_tree.animator import create_animation, generate_generation_frames
 from family_tree.csv_parser import parse_csv
@@ -52,7 +51,9 @@ class TestCreateAnimation:
     def test_creates_mp4(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         output = tmp_path / "test.mp4"
-        result = create_animation(family, output, generation_duration=1.0, fade_duration=0.5)
+        result = create_animation(
+            family, output, generation_duration=1.0, fade_duration=0.5
+        )
         assert result == output
         assert output.exists()
         assert output.stat().st_size > 0

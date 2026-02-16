@@ -57,9 +57,7 @@ def _validate_columns(headers: set[str]) -> None:
         raise CsvParseError(f"必須カラムが不足しています: {', '.join(sorted(missing))}")
 
 
-def _parse_rows(
-    rows: list[dict[str, str]], extra_columns: set[str]
-) -> list[Person]:
+def _parse_rows(rows: list[dict[str, str]], extra_columns: set[str]) -> list[Person]:
     """CSV行をPersonオブジェクトのリストに変換する。"""
     persons: list[Person] = []
     seen_ids: set[int] = set()
@@ -127,8 +125,7 @@ def _validate_references(family: Family) -> None:
         for pid in person.parent_ids:
             if pid not in all_ids:
                 errors.append(
-                    f"ID {person.id} ({person.name}): "
-                    f"親ID {pid} が存在しません"
+                    f"ID {person.id} ({person.name}): 親ID {pid} が存在しません"
                 )
 
         if person.spouse_id is not None and person.spouse_id not in all_ids:

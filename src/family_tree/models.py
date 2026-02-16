@@ -40,22 +40,14 @@ class Family:
 
     def get_children(self, person_id: int) -> list[Person]:
         """指定された人物の子供を返す。"""
-        return [
-            p
-            for p in self.persons.values()
-            if person_id in p.parent_ids
-        ]
+        return [p for p in self.persons.values() if person_id in p.parent_ids]
 
     def get_parents(self, person_id: int) -> list[Person]:
         """指定された人物の親を返す。"""
         person = self.persons.get(person_id)
         if person is None:
             return []
-        return [
-            self.persons[pid]
-            for pid in person.parent_ids
-            if pid in self.persons
-        ]
+        return [self.persons[pid] for pid in person.parent_ids if pid in self.persons]
 
     def get_spouse(self, person_id: int) -> Person | None:
         """指定された人物の配偶者を返す。"""

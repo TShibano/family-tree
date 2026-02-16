@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-import pytest
 
 from family_tree.csv_parser import parse_csv
 from family_tree.graph_builder import build_graph
@@ -13,9 +12,7 @@ from family_tree.renderer import render_graph
 
 def _build_minimal_family() -> Family:
     family = Family()
-    family.add_person(
-        Person(id=1, name="太郎", birth_date=date(2000, 1, 1), sex=Sex.M)
-    )
+    family.add_person(Person(id=1, name="太郎", birth_date=date(2000, 1, 1), sex=Sex.M))
     return family
 
 
