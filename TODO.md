@@ -1,58 +1,57 @@
-# TODO - Family Tree Generator 実行計画
+# TODO - アニメーション シーン単位化
 
-## Phase 1: プロジェクト初期設定
+## 概要
 
-- [x] `uv init` でプロジェクト初期化、`pyproject.toml` 設定
-- [x] 依存ライブラリ追加（graphviz, Pillow, moviepy, click, pytest, ruff, mypy）
-- [x] `src/family_tree/` パッケージ構成作成
-- [x] `.gitignore` 作成（output/, __pycache__, .venv 等）
-- [x] サンプルCSVファイル（`examples/sample.csv`）作成
+現在のアニメーションは「世代ごとに一気に表示」だが、より細かいシーン単位に分割する。
 
-## Phase 2: データモデル & CSV読み込み
+### シーン展開ルール（幅優先・世代順）
 
-- [x] `models.py` - Person データクラス定義（必須フィールド + メタデータ辞書で拡張対応）
-- [x] `models.py` - Family データクラス定義（Person集合 + 関係性管理）
-- [x] `csv_parser.py` - CSV読み込み処理の実装
-- [x] `csv_parser.py` - バリデーション（必須カラム存在確認、ID重複チェック、参照整合性）
-- [x] `csv_parser.py` - 未知カラムをメタデータとして保持する処理
-- [x] `tests/test_csv_parser.py` - CSV読み込みのユニットテスト
+1. ルート人物（親がいない人物のうち、配偶者でない方）を1人ずつ表示
+2. ルート人物の配偶者を1人ずつ表示
+3. 以降、世代順に以下を繰り返す:
+   - 各夫婦の子供（兄弟姉妹）をまとめて1シーンで表示
+   - 各子供の配偶者を1人ずつ1シーンで表示
 
-## Phase 3: 家系図グラフ構築
+### sample.csv での展開例
 
-- [x] `graph_builder.py` - Family データから世代（depth）を算出するロジック
-- [x] `graph_builder.py` - 親子関係・婚姻関係のグラフ構造構築
-- [x] `graph_builder.py` - Graphviz の Digraph オブジェクト生成
-- [x] `graph_builder.py` - ノードのスタイル設定（性別による色分け、ラベル表示）
-- [x] `graph_builder.py` - エッジのスタイル設定（婚姻=横線、親子=縦線）
-- [x] `tests/test_graph_builder.py` - グラフ構築のユニットテスト
+```
+シーン1: 太郎（ルート）
+シーン2: 花子（太郎の配偶者）
+シーン3: 一郎, 次郎（太郎+花子の子、兄弟）
+シーン4: 美咲（一郎の配偶者）
+シーン5: 由美（次郎の配偶者）
+シーン6: 翔太, 愛（一郎+美咲の子、兄弟姉妹）
+シーン7: 健太（次郎+由美の子）
+シーン8: 真理（健太の配偶者）
+シーン9: 大輝, さくら（健太+真理の子、兄弟姉妹）
+```
 
-## Phase 4: 画像出力（PNG/SVG）
+## 実装計画
 
-- [x] `renderer.py` - Graphviz グラフからPNG出力
-- [x] `renderer.py` - Graphviz グラフからSVG出力
-- [x] `renderer.py` - 出力先ディレクトリの自動作成
-- [x] `tests/test_renderer.py` - 画像出力のユニットテスト
-- [x] サンプルCSVを使った出力結果の目視確認・レイアウト調整
+### Step 1: シーン順序算出ロジック追加
 
-## Phase 5: CLIインターフェース
+- [ ] `graph_builder.py` に `compute_scene_order(family) -> list[list[int]]` を追加
+  - 各シーンに登場する person_id のリストを返す
+  - 幅優先で世代順に処理
+  - ルート人物 → ルート配偶者 → 子供グループ → 配偶者 → ... の順
+- [ ] `tests/test_graph_builder.py` に `compute_scene_order` のテスト追加
 
-- [x] `main.py` - click を使った CLI 構築
-- [x] `main.py` - `render` サブコマンド（--input, --output, --format オプション）
-- [x] `main.py` - `animate` サブコマンド（--input, --output オプション）
-- [x] `pyproject.toml` - `[project.scripts]` でエントリーポイント設定
-- [x] CLI の動作確認
+### Step 2: 任意の人物集合でグラフ構築
 
-## Phase 6: アニメーション動画出力
+- [ ] `build_graph_up_to_generation` を `build_graph_with_persons(family, visible_ids)` にリファクタ
+  - 世代番号ではなく、表示する person_id の集合を受け取る形に汎用化
+  - 既存の `build_graph_up_to_generation` はこの関数のラッパーにする
 
-- [x] `animator.py` - 世代ごとにフレーム画像を生成するロジック
-- [x] `animator.py` - moviepy を使って連番画像からMP4を生成
-- [x] `animator.py` - フェードイン等のトランジション演出
-- [x] `tests/test_animator.py` - アニメーション生成のユニットテスト
-- [x] サンプルCSVを使った動画出力の目視確認
+### Step 3: animator.py のシーン単位化
 
-## Phase 7: 仕上げ
+- [ ] `generate_generation_frames` を `generate_scene_frames` にリネーム・書き換え
+  - `compute_scene_order` で得たシーン順に累積的にフレームを生成
+- [ ] `create_animation` を新しいフレーム生成関数に対応させる
+- [ ] `tests/test_animator.py` のテスト更新
 
-- [x] ruff format / ruff check で全体のコード品質チェック
-- [x] mypy で型チェック通過確認
-- [x] 全テスト通過確認
-- [x] README.md 作成（使い方・CSV仕様の説明）
+### Step 4: 動作確認 & 仕上げ
+
+- [ ] sample.csv でアニメーション出力し、シーン順序が正しいか目視確認
+- [ ] ruff format / ruff check 通過
+- [ ] mypy 通過
+- [ ] 全テスト通過
