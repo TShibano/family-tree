@@ -8,6 +8,7 @@ from family_tree.csv_parser import parse_csv
 from family_tree.graph_builder import (
     build_graph,
     compute_generations,
+    compute_scene_order,
     _get_couple_children,
 )
 from family_tree.models import Family, Person, Sex
@@ -169,3 +170,65 @@ class TestBuildGraph:
         family.add_person(_make_person(1, "単独者", Sex.M))
         dot = build_graph(family)
         assert "単独者" in dot.source
+
+
+class TestComputeSceneOrder:
+    def test_simple_family(self) -> None:
+        """太郎+花子→一郎 の3人家族。"""
+        family = _build_simple_family()
+        scenes = compute_scene_order(family)
+        # シーン1: 太郎(1), シーン2: 花子(2), シーン3: 一郎(3)
+        assert scenes[0] == [1]
+        assert scenes[1] == [2]
+        assert scenes[2] == [3]
+        assert len(scenes) == 3
+
+    def test_sample_csv_scene_order(self) -> None:
+        """sample.csv のシーン展開が期待通り。"""
+        family = parse_csv("examples/sample.csv")
+        scenes = compute_scene_order(family)
+        # シーン1: 太郎(1)
+        assert scenes[0] == [1]
+        # シーン2: 花子(2)
+        assert scenes[1] == [2]
+        # シーン3: 一郎(3), 次郎(5) - 兄弟
+        assert scenes[2] == [3, 5]
+        # シーン4: 美咲(4) - 一郎の配偶者
+        assert scenes[3] == [4]
+        # シーン5: 由美(6) - 次郎の配偶者
+        assert scenes[4] == [6]
+        # シーン6: 翔太(7), 愛(8) - 一郎+美咲の子
+        assert scenes[5] == [7, 8]
+        # シーン7: 健太(9) - 次郎+由美の子
+        assert scenes[6] == [9]
+        # シーン8: 真理(10) - 健太の配偶者
+        assert scenes[7] == [10]
+        # シーン9: 大輝(11), さくら(12) - 健太+真理の子
+        assert scenes[8] == [11, 12]
+        assert len(scenes) == 9
+
+    def test_all_persons_included(self) -> None:
+        """全ての人物がシーンに含まれる。"""
+        family = parse_csv("examples/sample.csv")
+        scenes = compute_scene_order(family)
+        all_ids = set()
+        for scene in scenes:
+            all_ids.update(scene)
+        assert all_ids == set(family.persons.keys())
+
+    def test_single_person(self) -> None:
+        """1人だけの場合。"""
+        family = Family()
+        family.add_person(_make_person(1, "単独者", Sex.M))
+        scenes = compute_scene_order(family)
+        assert scenes == [[1]]
+
+    def test_no_duplicate_ids(self) -> None:
+        """同一人物が複数シーンに登場しない。"""
+        family = parse_csv("examples/sample.csv")
+        scenes = compute_scene_order(family)
+        seen: set[int] = set()
+        for scene in scenes:
+            for pid in scene:
+                assert pid not in seen, f"ID {pid} が重複"
+                seen.add(pid)

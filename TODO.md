@@ -30,28 +30,28 @@
 
 ### Step 1: シーン順序算出ロジック追加
 
-- [ ] `graph_builder.py` に `compute_scene_order(family) -> list[list[int]]` を追加
+- [x] `graph_builder.py` に `compute_scene_order(family) -> list[list[int]]` を追加
   - 各シーンに登場する person_id のリストを返す
   - 幅優先で世代順に処理
   - ルート人物 → ルート配偶者 → 子供グループ → 配偶者 → ... の順
-- [ ] `tests/test_graph_builder.py` に `compute_scene_order` のテスト追加
+- [x] `tests/test_graph_builder.py` に `compute_scene_order` のテスト追加
 
 ### Step 2: 任意の人物集合でグラフ構築
 
-- [ ] `build_graph_up_to_generation` を `build_graph_with_persons(family, visible_ids)` にリファクタ
+- [x] `build_graph_up_to_generation` を `build_graph_with_persons(family, visible_ids)` にリファクタ
   - 世代番号ではなく、表示する person_id の集合を受け取る形に汎用化
   - 既存の `build_graph_up_to_generation` はこの関数のラッパーにする
 
 ### Step 3: animator.py のシーン単位化
 
-- [ ] `generate_generation_frames` を `generate_scene_frames` にリネーム・書き換え
+- [x] `generate_generation_frames` を `generate_scene_frames` にリネーム・書き換え
   - `compute_scene_order` で得たシーン順に累積的にフレームを生成
-- [ ] `create_animation` を新しいフレーム生成関数に対応させる
-- [ ] `tests/test_animator.py` のテスト更新
+- [x] `create_animation` を新しいフレーム生成関数に対応させる
+- [x] `tests/test_animator.py` のテスト更新
 
 ### Step 4: 動作確認 & 仕上げ
 
-- [ ] sample.csv でアニメーション出力し、シーン順序が正しいか目視確認
-- [ ] ruff format / ruff check 通過
-- [ ] mypy 通過
-- [ ] 全テスト通過
+- [x] sample.csv でアニメーション出力し、シーン順序が正しいか目視確認
+- [x] ruff format / ruff check 通過
+- [x] mypy 通過
+- [x] 全テスト通過
