@@ -2,11 +2,11 @@
 
 ## Phase 1: プロジェクト初期設定
 
-- [ ] `uv init` でプロジェクト初期化、`pyproject.toml` 設定
-- [ ] 依存ライブラリ追加（graphviz, Pillow, moviepy, click, pytest, ruff, mypy）
-- [ ] `src/family_tree/` パッケージ構成作成
-- [ ] `.gitignore` 作成（output/, __pycache__, .venv 等）
-- [ ] サンプルCSVファイル（`examples/sample.csv`）作成
+- [x] `uv init` でプロジェクト初期化、`pyproject.toml` 設定
+- [x] 依存ライブラリ追加（graphviz, Pillow, moviepy, click, pytest, ruff, mypy）
+- [x] `src/family_tree/` パッケージ構成作成
+- [x] `.gitignore` 作成（output/, __pycache__, .venv 等）
+- [x] サンプルCSVファイル（`examples/sample.csv`）作成
 
 ## Phase 2: データモデル & CSV読み込み
 

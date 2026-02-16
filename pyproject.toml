@@ -1,0 +1,29 @@
+[project]
+name = "family-tree"
+version = "0.1.0"
+description = "CSV形式の個人情報から家系図を画像・動画として出力するCLIアプリケーション"
+readme = "README.md"
+authors = [
+    { name = "citrus", email = "citrus.mikan88@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "graphviz",
+    "Pillow",
+    "moviepy",
+    "click",
+]
+
+[project.scripts]
+family-tree = "family_tree.main:cli"
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+]
