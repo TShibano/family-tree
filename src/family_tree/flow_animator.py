@@ -16,8 +16,8 @@ import numpy as np
 from moviepy import VideoClip
 
 from family_tree.frame_drawer import FrameDrawer
-from family_tree.graph_builder import build_graph_with_persons, compute_scene_order
-from family_tree.layout_engine import EdgeLayout, GraphLayout, extract_layout
+from family_tree.graph_builder import build_graph_with_persons
+from family_tree.layout_engine import EdgeLayout, GraphLayout, extract_layout, scale_node_widths
 from family_tree.models import Family
 
 # デフォルトパラメータ
@@ -125,66 +125,48 @@ def build_action_sequence(
     line_duration: float = DEFAULT_LINE_DURATION,
     pause_duration: float = DEFAULT_PAUSE_DURATION,
 ) -> list[AnimAction]:
-    """シーン順序からアニメーションアクション列を構築する。
+    """CSVの行順に1人ずつアニメーションアクション列を構築する。
 
     Returns:
         AnimAction のリスト（時系列順）
     """
-    scene_order = compute_scene_order(family)
     actions: list[AnimAction] = []
     shown: set[int] = set()
 
-    for scene_ids in scene_order:
-        if not scene_ids:
-            continue
+    for person in family.persons.values():
+        pid = person.id
 
-        # この人物たちを表示
+        # この人物を表示
         actions.append(
             AnimAction(
                 action_type=ActionType.APPEAR,
                 duration=0.0,  # 瞬間表示
-                new_person_ids=list(scene_ids),
+                new_person_ids=[pid],
             )
         )
+        shown.add(pid)
 
-        new_ids = set(scene_ids)
-        shown.update(new_ids)
-
-        # 新たに表示された人物に関連する線をアニメーション
+        # 関連する線をアニメーション
         edges_to_animate: list[EdgeLayout] = []
-        seen_edge_keys: set[tuple[str, str]] = set()
 
-        for pid in scene_ids:
-            person = family.get_person(pid)
-            if person is None:
-                continue
+        # 配偶者との婚姻線（配偶者が既に表示済みの場合）
+        if person.spouse_id is not None and person.spouse_id in shown:
+            merged = _merge_marriage_edges(layout, pid, person.spouse_id)
+            edges_to_animate.extend(merged)
 
-            # 配偶者との婚姻線（配偶者が既に表示済みの場合）
-            if person.spouse_id is not None and person.spouse_id in shown:
-                merged = _merge_marriage_edges(layout, pid, person.spouse_id)
-                for e in merged:
-                    key = (min(e.tail, e.head), max(e.tail, e.head))
-                    if key not in seen_edge_keys:
-                        edges_to_animate.append(e)
-                        seen_edge_keys.add(key)
-
-            # 親からの親子線（両親が既に表示済みの場合）
-            if person.parent_ids:
-                parents_shown = all(p in shown for p in person.parent_ids)
-                if parents_shown:
-                    child_edges = _find_child_edges(
-                        layout,
-                        person.parent_ids[0],
-                        person.parent_ids[1]
-                        if len(person.parent_ids) > 1
-                        else person.parent_ids[0],
-                        pid,
-                    )
-                    for e in child_edges:
-                        key = (min(e.tail, e.head), max(e.tail, e.head))
-                        if key not in seen_edge_keys:
-                            edges_to_animate.append(e)
-                            seen_edge_keys.add(key)
+        # 親からの親子線（両親が既に表示済みの場合）
+        if person.parent_ids:
+            parents_shown = all(p in shown for p in person.parent_ids)
+            if parents_shown:
+                child_edges = _find_child_edges(
+                    layout,
+                    person.parent_ids[0],
+                    person.parent_ids[1]
+                    if len(person.parent_ids) > 1
+                    else person.parent_ids[0],
+                    pid,
+                )
+                edges_to_animate.extend(child_edges)
 
         if edges_to_animate:
             actions.append(
@@ -234,6 +216,7 @@ def create_flow_animation(
     all_ids = set(family.persons.keys())
     full_dot = build_graph_with_persons(family, all_ids)
     layout = extract_layout(full_dot)
+    scale_node_widths(layout, 1.2)
 
     # アクションシーケンスを構築
     actions = build_action_sequence(family, layout, line_duration, pause_duration)

@@ -153,6 +153,18 @@ def _parse_plain(plain_text: str) -> GraphLayout:
     return layout
 
 
+def scale_node_widths(layout: GraphLayout, factor: float) -> None:
+    """全ノードの幅をスケールし、エッジ端点を再補正する。
+
+    中心座標は変更せず、幅だけを拡大/縮小する。
+    point ノード（couple ノード等）はスケールしない。
+    """
+    for node in layout.nodes.values():
+        if node.width >= 2:  # point ノードを除外
+            node.width *= factor
+    fix_edge_endpoints(layout)
+
+
 def fix_edge_endpoints(layout: GraphLayout) -> None:
     """エッジの端点をノード境界に補正する。
 
