@@ -8,6 +8,8 @@ build/
 # Virtual environment
 .venv/
 
+# Input
+input/
 # Output
 output/
 
