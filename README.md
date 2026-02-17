@@ -33,7 +33,14 @@ uv run family-tree render --input data.csv --output tree.svg --format svg
 ### アニメーション動画出力
 
 ```bash
+# カット切り替え方式
 uv run family-tree animate --input data.csv --output tree.mp4
+
+# フローアニメーション方式（線が動きながら描画される）
+uv run family-tree animate-flow --input data.csv --output tree.mp4
+
+# 線アニメーションの速度を変更（デフォルト: 0.5秒）
+uv run family-tree animate-flow --input data.csv --output tree.mp4 --line-duration 1.0
 ```
 
 ## CSV仕様
