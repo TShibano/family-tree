@@ -91,3 +91,34 @@ tests/
 | 線アニメーション時間 | 0.5秒 | CLI オプションで変更可 |
 | ブロック表示後の静止時間 | 0.3秒 | シーン間の間 |
 | 全体完成後の静止時間 | 2.0秒 | 最後に全体像を見せる |
+
+---
+
+## 追加修正 (v2)
+
+### 問題1: 婚姻線が2箇所から出る
+
+**原因**: Graphviz のグラフでは婚姻を `person1 → couple_node → person2` の2本のエッジで表現している。`flow_animator.py` では この2本を別々のエッジとして同時にアニメーションしているため、person1 の右端と couple_node の2箇所から線が伸び始める。
+
+**修正方針**: `flow_animator.py` の `_find_marriage_edges` で取得した2本のエッジを、アニメーション時に1本の連続パスとして結合する。具体的には:
+- `person1 → couple_node` のポイント列と `couple_node → person2` のポイント列を結合して1つの `EdgeLayout` を作る
+- `build_action_sequence` でこの結合エッジを使用する
+
+**変更ファイル**: `flow_animator.py`
+
+### 問題2: 親子線が子ノードに届かない
+
+**原因**: Graphviz の plain 出力のスプライン端点は、ノードの境界上の正確な接触点だが、Graphviz はノードを楕円形として計算するため、矩形ノードとしてPillowで描画する場合にずれが生じる。例: エッジ端点 y=101.3 vs 子ノード top=108.0（約7px の隙間）。
+
+**修正方針**: `flow_animator.py` または `layout_engine.py` にエッジ端点補正処理を追加する:
+- エッジの最終点を、head ノードの上端中央 (cx, top) に補正する
+- エッジの最初の点を、tail ノードの位置（couple_node の場合は中心、person の場合は下端中央）に補正する
+
+**変更ファイル**: `layout_engine.py`（端点補正関数を追加）
+
+### 実装ステップ
+
+1. `layout_engine.py` にエッジ端点補正関数 `fix_edge_endpoints()` を追加
+2. `flow_animator.py` に婚姻エッジ結合ロジックを追加（`_merge_marriage_edges()`）
+3. `build_action_sequence()` で結合エッジを使用するよう修正
+4. テスト追加・動作確認
