@@ -12,9 +12,6 @@ from pathlib import Path
 
 import graphviz
 
-# Graphviz のポイント単位をピクセルに変換するスケール (432 DPI = 6x)
-DPI = 432
-SCALE = DPI  # 1 inch = 432 pixels
 
 
 @dataclass
@@ -63,13 +60,14 @@ class GraphLayout:
     edges: list[EdgeLayout] = field(default_factory=list)
 
 
-def extract_layout(dot: graphviz.Digraph) -> GraphLayout:
+def extract_layout(dot: graphviz.Digraph, dpi: int = 432) -> GraphLayout:
     """Graphviz Digraph からレイアウト座標を抽出する。
 
     Graphviz の ``plain`` 形式出力をパースし、ピクセル座標に変換して返す。
 
     Args:
         dot: Graphviz Digraph オブジェクト
+        dpi: 解像度（1インチあたりのピクセル数）。デフォルト 432 (6x)。
 
     Returns:
         GraphLayout オブジェクト
@@ -89,10 +87,10 @@ def extract_layout(dot: graphviz.Digraph) -> GraphLayout:
     finally:
         gv_path.unlink(missing_ok=True)
 
-    return _parse_plain(result.stdout)
+    return _parse_plain(result.stdout, dpi)
 
 
-def _parse_plain(plain_text: str) -> GraphLayout:
+def _parse_plain(plain_text: str, scale: int) -> GraphLayout:
     """Graphviz plain 形式のテキストをパースする。
 
     plain 形式:
@@ -114,16 +112,16 @@ def _parse_plain(plain_text: str) -> GraphLayout:
 
         if parts[0] == "graph":
             # graph scale width height
-            graph_width = float(parts[2]) * SCALE
-            graph_height = float(parts[3]) * SCALE
+            graph_width = float(parts[2]) * scale
+            graph_height = float(parts[3]) * scale
 
         elif parts[0] == "node":
             # node name x y width height label ...
             name = parts[1]
-            x = float(parts[2]) * SCALE
-            y = float(parts[3]) * SCALE
-            w = float(parts[4]) * SCALE
-            h = float(parts[5]) * SCALE
+            x = float(parts[2]) * scale
+            y = float(parts[3]) * scale
+            w = float(parts[4]) * scale
+            h = float(parts[5]) * scale
             # Y軸反転: y_pixel = graph_height - y_graphviz
             cy = graph_height - y
             nodes[name] = NodeLayout(name=name, cx=x, cy=cy, width=w, height=h)
@@ -135,8 +133,8 @@ def _parse_plain(plain_text: str) -> GraphLayout:
             n = int(parts[3])
             points: list[tuple[float, float]] = []
             for j in range(n):
-                px = float(parts[4 + 2 * j]) * SCALE
-                py = graph_height - float(parts[4 + 2 * j + 1]) * SCALE
+                px = float(parts[4 + 2 * j]) * scale
+                py = graph_height - float(parts[4 + 2 * j + 1]) * scale
                 points.append((px, py))
             edges.append(EdgeLayout(tail=tail, head=head, points=points))
 

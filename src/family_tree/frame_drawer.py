@@ -8,28 +8,9 @@ from __future__ import annotations
 
 from PIL import Image, ImageDraw, ImageFont
 
+from family_tree.config import AppConfig
 from family_tree.layout_engine import EdgeLayout, GraphLayout, NodeLayout
 from family_tree.models import Family, Sex
-
-# 描画色（和色）
-COLOR_MALE_FILL = (193, 216, 236)  # 白藍（しらあい）
-COLOR_FEMALE_FILL = (253, 239, 242)  # 桜色（さくらいろ）
-COLOR_MALE_BORDER = (46, 79, 111)  # 藍色（あいいろ）
-COLOR_FEMALE_BORDER = (142, 53, 74)  # 蘇芳（すおう）
-COLOR_MARRIAGE_LINE = (197, 61, 67)  # 朱色（しゅいろ）
-COLOR_CHILD_LINE = (89, 88, 87)  # 墨色（すみいろ）
-COLOR_TEXT = (43, 43, 43)  # 墨
-COLOR_BG = (245, 240, 232)  # 生成色（きなりいろ）
-
-# 描画パラメータ (6x解像度 — 90インチスクリーン向け)
-PADDING = 240  # グラフ周囲の余白 (px)
-LINE_WIDTH_MARRIAGE = 18
-LINE_WIDTH_CHILD = 12
-BORDER_WIDTH = 10
-CORNER_RADIUS = 48  # 角丸半径
-
-# フォントサイズ (6x解像度)
-FONT_SIZE_NAME = 90
 
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -114,13 +95,15 @@ def _interpolate_points_along_path(
 class FrameDrawer:
     """家系図フレームの描画を管理するクラス。"""
 
-    def __init__(self, layout: GraphLayout, family: Family) -> None:
+    def __init__(self, layout: GraphLayout, family: Family, config: AppConfig) -> None:
         self.layout = layout
         self.family = family
-        self.font_name = _get_font(FONT_SIZE_NAME)
+        self.config = config
+        self.font_name = _get_font(config.dimensions.font_size_name)
         # キャンバスサイズ (余白を含む)
-        self.canvas_width = int(layout.width + PADDING * 2)
-        self.canvas_height = int(layout.height + PADDING * 2)
+        padding = config.dimensions.padding
+        self.canvas_width = int(layout.width + padding * 2)
+        self.canvas_height = int(layout.height + padding * 2)
 
     def draw_frame(
         self,
@@ -137,7 +120,7 @@ class FrameDrawer:
         Returns:
             描画されたフレーム画像
         """
-        img = Image.new("RGB", (self.canvas_width, self.canvas_height), COLOR_BG)
+        img = Image.new("RGB", (self.canvas_width, self.canvas_height), self.config.colors.background)
         draw = ImageDraw.Draw(img)
 
         # エッジを先に描画（ノードの下に表示）
@@ -163,21 +146,24 @@ class FrameDrawer:
         if not isinstance(person, Person):
             return
 
-        x0 = node.left + PADDING
-        y0 = node.top + PADDING
-        x1 = node.right + PADDING
-        y1 = node.bottom + PADDING
+        padding = self.config.dimensions.padding
+        x0 = node.left + padding
+        y0 = node.top + padding
+        x1 = node.right + padding
+        y1 = node.bottom + padding
 
-        fill = COLOR_MALE_FILL if person.sex == Sex.M else COLOR_FEMALE_FILL
-        border = COLOR_MALE_BORDER if person.sex == Sex.M else COLOR_FEMALE_BORDER
+        colors = self.config.colors
+        dims = self.config.dimensions
+        fill = colors.male_fill if person.sex == Sex.M else colors.female_fill
+        border = colors.male_border if person.sex == Sex.M else colors.female_border
 
         # 角丸矩形を描画
         draw.rounded_rectangle(
             [x0, y0, x1, y1],
-            radius=CORNER_RADIUS,
+            radius=dims.corner_radius,
             fill=fill,
             outline=border,
-            width=BORDER_WIDTH,
+            width=dims.border_width,
         )
 
         # 名前（中央揃え）
@@ -188,7 +174,7 @@ class FrameDrawer:
         name_x = (x0 + x1) / 2 - name_w / 2
         name_y = (y0 + y1) / 2 - name_h / 2
 
-        draw.text((name_x, name_y), name_text, fill=COLOR_TEXT, font=self.font_name)
+        draw.text((name_x, name_y), name_text, fill=colors.text, font=self.font_name)
 
     def _draw_edge(
         self, draw: ImageDraw.ImageDraw, edge: EdgeLayout, progress: float
@@ -197,8 +183,12 @@ class FrameDrawer:
         if not edge.points or progress <= 0:
             return
 
+        padding = self.config.dimensions.padding
+        colors = self.config.colors
+        dims = self.config.dimensions
+
         # PADDING オフセットを適用
-        offset_points = [(p[0] + PADDING, p[1] + PADDING) for p in edge.points]
+        offset_points = [(p[0] + padding, p[1] + padding) for p in edge.points]
 
         # 進捗率に応じて描画する点列を計算
         draw_points = _interpolate_points_along_path(offset_points, progress)
@@ -215,17 +205,17 @@ class FrameDrawer:
         if tail_node and head_node:
             # Y座標がほぼ同じなら婚姻線
             if abs(tail_node.cy - head_node.cy) < 5:
-                color = COLOR_MARRIAGE_LINE
-                width = LINE_WIDTH_MARRIAGE
+                color = colors.marriage_line
+                width = dims.line_width_marriage
             else:
-                color = COLOR_CHILD_LINE
-                width = LINE_WIDTH_CHILD
+                color = colors.child_line
+                width = dims.line_width_child
         elif is_marriage:
-            color = COLOR_MARRIAGE_LINE
-            width = LINE_WIDTH_MARRIAGE
+            color = colors.marriage_line
+            width = dims.line_width_marriage
         else:
-            color = COLOR_CHILD_LINE
-            width = LINE_WIDTH_CHILD
+            color = colors.child_line
+            width = dims.line_width_child
 
         # 線を描画
         for i in range(len(draw_points) - 1):

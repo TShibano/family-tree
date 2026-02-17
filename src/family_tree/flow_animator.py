@@ -15,16 +15,11 @@ from pathlib import Path
 import numpy as np
 from moviepy import VideoClip
 
+from family_tree.config import AppConfig
 from family_tree.frame_drawer import FrameDrawer
 from family_tree.graph_builder import build_graph_with_persons
 from family_tree.layout_engine import EdgeLayout, GraphLayout, extract_layout, scale_node_widths
 from family_tree.models import Family
-
-# デフォルトパラメータ
-DEFAULT_FPS = 24
-DEFAULT_LINE_DURATION = 0.5  # 線アニメーション秒数
-DEFAULT_PAUSE_DURATION = 0.3  # シーン間の静止秒数
-DEFAULT_FINAL_PAUSE = 2.0  # 最後の全体表示秒数
 
 
 class ActionType(Enum):
@@ -122,8 +117,8 @@ def _find_child_edges(
 def build_action_sequence(
     family: Family,
     layout: GraphLayout,
-    line_duration: float = DEFAULT_LINE_DURATION,
-    pause_duration: float = DEFAULT_PAUSE_DURATION,
+    line_duration: float = 0.5,
+    pause_duration: float = 0.3,
 ) -> list[AnimAction]:
     """CSVの行順に1人ずつアニメーションアクション列を構築する。
 
@@ -191,20 +186,16 @@ def build_action_sequence(
 def create_flow_animation(
     family: Family,
     output_path: str | Path,
-    line_duration: float = DEFAULT_LINE_DURATION,
-    pause_duration: float = DEFAULT_PAUSE_DURATION,
-    final_pause: float = DEFAULT_FINAL_PAUSE,
-    fps: int = DEFAULT_FPS,
+    config: AppConfig,
+    line_duration: float | None = None,
 ) -> Path:
     """フローアニメーション動画（MP4）を生成する。
 
     Args:
         family: Family オブジェクト
         output_path: 出力MP4ファイルパス
-        line_duration: 線アニメーション秒数
-        pause_duration: シーン間の静止秒数
-        final_pause: 最後の全体表示秒数
-        fps: 動画のフレームレート
+        config: アプリケーション設定
+        line_duration: 線アニメーション秒数。None の場合は config の値を使用。
 
     Returns:
         出力されたファイルのパス
@@ -212,14 +203,20 @@ def create_flow_animation(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    anim = config.animation
+    effective_line_duration = line_duration if line_duration is not None else anim.line_duration
+    pause_duration = anim.pause_duration
+    final_pause = anim.final_pause
+    fps = anim.fps
+
     # 全員表示のグラフでレイアウトを計算
     all_ids = set(family.persons.keys())
     full_dot = build_graph_with_persons(family, all_ids)
-    layout = extract_layout(full_dot)
+    layout = extract_layout(full_dot, dpi=config.dimensions.dpi)
     scale_node_widths(layout, 1.2)
 
     # アクションシーケンスを構築
-    actions = build_action_sequence(family, layout, line_duration, pause_duration)
+    actions = build_action_sequence(family, layout, effective_line_duration, pause_duration)
 
     # 最後の全体表示を追加
     actions.append(AnimAction(action_type=ActionType.PAUSE, duration=final_pause))
@@ -236,7 +233,7 @@ def create_flow_animation(
         raise ValueError("アニメーションの長さが0です")
 
     # フレーム描画器
-    drawer = FrameDrawer(layout, family)
+    drawer = FrameDrawer(layout, family, config)
 
     # 状態管理: 各時刻での描画状態を計算する関数
     def make_frame(t: float) -> np.ndarray:

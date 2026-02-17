@@ -6,17 +6,13 @@ from pathlib import Path
 from moviepy import ImageClip, concatenate_videoclips
 from PIL import Image
 
+from family_tree.config import AppConfig
 from family_tree.graph_builder import (
     build_graph_with_persons,
     compute_scene_order,
 )
 from family_tree.models import Family
 from family_tree.renderer import render_graph
-
-# 各シーンの表示秒数
-SCENE_DURATION = 2.0
-# 動画の FPS
-FPS = 24
 
 
 def generate_scene_frames(family: Family, tmp_dir: Path) -> list[Path]:
@@ -42,8 +38,7 @@ def generate_scene_frames(family: Family, tmp_dir: Path) -> list[Path]:
 def create_animation(
     family: Family,
     output_path: str | Path,
-    scene_duration: float = SCENE_DURATION,
-    fps: int = FPS,
+    config: AppConfig,
 ) -> Path:
     """家系図のアニメーション動画（MP4）を生成する。
 
@@ -52,12 +47,13 @@ def create_animation(
     Args:
         family: Family オブジェクト
         output_path: 出力MP4ファイルパス
-        scene_duration: 各シーンの表示秒数
-        fps: 動画のフレームレート
+        config: アプリケーション設定
 
     Returns:
         出力されたファイルのパス
     """
+    scene_duration = config.animation.scene_duration
+    fps = config.animation.fps
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

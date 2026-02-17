@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from family_tree.config import AppConfig, AnimationConfig
 from family_tree.csv_parser import parse_csv
 from family_tree.flow_animator import (
     ActionType,
@@ -153,7 +154,7 @@ class TestFrameDrawer:
     def test_draw_empty_frame(self) -> None:
         family = _build_two_gen_family()
         layout = _get_layout(family)
-        drawer = FrameDrawer(layout, family)
+        drawer = FrameDrawer(layout, family, AppConfig())
         img = drawer.draw_frame(set(), [])
         assert img.size[0] > 0
         assert img.size[1] > 0
@@ -161,18 +162,25 @@ class TestFrameDrawer:
     def test_draw_frame_with_persons(self) -> None:
         family = _build_two_gen_family()
         layout = _get_layout(family)
-        drawer = FrameDrawer(layout, family)
+        drawer = FrameDrawer(layout, family, AppConfig())
         img = drawer.draw_frame({1, 2}, [])
         assert img.size[0] > 0
+
+
+def _fast_config() -> AppConfig:
+    """テスト用の短時間設定。"""
+    cfg = AppConfig()
+    cfg.animation.line_duration = 0.3
+    cfg.animation.pause_duration = 0.1
+    cfg.animation.final_pause = 0.5
+    return cfg
 
 
 class TestCreateFlowAnimation:
     def test_creates_mp4(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         output = tmp_path / "test_flow.mp4"
-        result = create_flow_animation(
-            family, output, line_duration=0.3, pause_duration=0.1, final_pause=0.5
-        )
+        result = create_flow_animation(family, output, _fast_config())
         assert result == output
         assert output.exists()
         assert output.stat().st_size > 0
@@ -181,9 +189,7 @@ class TestCreateFlowAnimation:
         """examples/sample.csv からフローアニメーションを正常に生成できる。"""
         family = parse_csv("examples/sample.csv")
         output = tmp_path / "sample_flow.mp4"
-        create_flow_animation(
-            family, output, line_duration=0.3, pause_duration=0.1, final_pause=0.5
-        )
+        create_flow_animation(family, output, _fast_config())
         assert output.exists()
         assert output.stat().st_size > 0
 
@@ -194,15 +200,20 @@ class TestCreateFlowAnimation:
             Person(id=1, name="単独者", birth_date=date(2000, 1, 1), sex=Sex.M)
         )
         output = tmp_path / "single_flow.mp4"
-        create_flow_animation(
-            family, output, line_duration=0.3, pause_duration=0.1, final_pause=0.5
-        )
+        create_flow_animation(family, output, _fast_config())
         assert output.exists()
 
     def test_auto_create_directory(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         output = tmp_path / "nested" / "dir" / "test_flow.mp4"
-        create_flow_animation(
-            family, output, line_duration=0.3, pause_duration=0.1, final_pause=0.5
-        )
+        create_flow_animation(family, output, _fast_config())
+        assert output.exists()
+
+    def test_line_duration_override(self, tmp_path: Path) -> None:
+        """line_duration 引数が config より優先される。"""
+        family = _build_two_gen_family()
+        output = tmp_path / "override_flow.mp4"
+        cfg = _fast_config()
+        cfg.animation.line_duration = 999.0  # 上書きされるべき値
+        create_flow_animation(family, output, cfg, line_duration=0.3)
         assert output.exists()
