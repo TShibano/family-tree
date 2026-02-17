@@ -12,9 +12,9 @@ from pathlib import Path
 
 import graphviz
 
-# Graphviz のポイント単位をピクセルに変換するスケール (72 DPI)
-DPI = 72
-SCALE = DPI  # 1 inch = 72 points = 72 pixels
+# Graphviz のポイント単位をピクセルに変換するスケール (432 DPI = 6x)
+DPI = 432
+SCALE = DPI  # 1 inch = 432 pixels
 
 
 @dataclass
@@ -143,9 +143,66 @@ def _parse_plain(plain_text: str) -> GraphLayout:
         elif parts[0] == "stop":
             break
 
-    return GraphLayout(
+    layout = GraphLayout(
         width=graph_width,
         height=graph_height,
         nodes=nodes,
         edges=edges,
     )
+    fix_edge_endpoints(layout)
+    return layout
+
+
+def fix_edge_endpoints(layout: GraphLayout) -> None:
+    """エッジの端点をノード境界に補正する。
+
+    Graphviz はノードを楕円形として端点を計算するため、
+    矩形ノードとして描画する場合にずれが生じる。
+    tail ノードの適切な境界点と head ノードの適切な境界点に端点を補正する。
+    """
+    for edge in layout.edges:
+        tail_node = layout.nodes.get(edge.tail)
+        head_node = layout.nodes.get(edge.head)
+
+        if tail_node and edge.points:
+            # tail の端点を補正
+            edge.points[0] = _snap_to_node_border(
+                tail_node, edge.points[1] if len(edge.points) > 1 else edge.points[0]
+            )
+
+        if head_node and edge.points:
+            # head の端点を補正
+            edge.points[-1] = _snap_to_node_border(
+                head_node,
+                edge.points[-2] if len(edge.points) > 1 else edge.points[-1],
+            )
+
+
+def _snap_to_node_border(
+    node: NodeLayout, toward: tuple[float, float]
+) -> tuple[float, float]:
+    """ノードの境界上で、toward 方向に最も近い点を返す。
+
+    矩形ノードの上下左右の辺のうち、toward からの方向に最も適切な辺の点を返す。
+    point ノード (width/height が非常に小さい) の場合は中心を返す。
+    """
+    # point ノード（couple ノード等）の場合は中心を返す
+    if node.width < 2 and node.height < 2:
+        return (node.cx, node.cy)
+
+    dx = toward[0] - node.cx
+    dy = toward[1] - node.cy
+
+    # 方向に応じてノードの適切な辺の中央を返す
+    if abs(dy) > abs(dx):
+        # 上または下方向
+        if dy > 0:
+            return (node.cx, node.bottom)  # 下辺
+        else:
+            return (node.cx, node.top)  # 上辺
+    else:
+        # 左または右方向
+        if dx > 0:
+            return (node.right, node.cy)  # 右辺
+        else:
+            return (node.left, node.cy)  # 左辺

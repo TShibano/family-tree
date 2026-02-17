@@ -11,38 +11,44 @@ from PIL import Image, ImageDraw, ImageFont
 from family_tree.layout_engine import EdgeLayout, GraphLayout, NodeLayout
 from family_tree.models import Family, Sex
 
-# 描画色
-COLOR_MALE_FILL = (173, 216, 230)  # lightblue
-COLOR_FEMALE_FILL = (255, 182, 193)  # lightpink
-COLOR_MALE_BORDER = (100, 149, 237)  # cornflowerblue
-COLOR_FEMALE_BORDER = (219, 112, 147)  # palevioletred
-COLOR_MARRIAGE_LINE = (139, 0, 0)  # darkred
-COLOR_CHILD_LINE = (77, 77, 77)  # gray30
-COLOR_TEXT = (30, 30, 30)
-COLOR_BG = (255, 255, 255)
+# 描画色（和色）
+COLOR_MALE_FILL = (193, 216, 236)  # 白藍（しらあい）
+COLOR_FEMALE_FILL = (253, 239, 242)  # 桜色（さくらいろ）
+COLOR_MALE_BORDER = (46, 79, 111)  # 藍色（あいいろ）
+COLOR_FEMALE_BORDER = (142, 53, 74)  # 蘇芳（すおう）
+COLOR_MARRIAGE_LINE = (197, 61, 67)  # 朱色（しゅいろ）
+COLOR_CHILD_LINE = (89, 88, 87)  # 墨色（すみいろ）
+COLOR_TEXT = (43, 43, 43)  # 墨
+COLOR_BG = (245, 240, 232)  # 生成色（きなりいろ）
 
-# 描画パラメータ
-PADDING = 40  # グラフ周囲の余白 (px)
-LINE_WIDTH_MARRIAGE = 3
-LINE_WIDTH_CHILD = 2
-BORDER_WIDTH = 2
+# 描画パラメータ (6x解像度 — 90インチスクリーン向け)
+PADDING = 240  # グラフ周囲の余白 (px)
+LINE_WIDTH_MARRIAGE = 18
+LINE_WIDTH_CHILD = 12
+BORDER_WIDTH = 10
+CORNER_RADIUS = 48  # 角丸半径
 
-# フォントサイズ
-FONT_SIZE_NAME = 14
-FONT_SIZE_DATE = 11
+# フォントサイズ (6x解像度)
+FONT_SIZE_NAME = 90
 
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """フォントを取得する。システムフォントが見つからない場合はデフォルトを使用。"""
-    font_candidates = [
-        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    # (パス, ttcインデックス) のリスト。None はデフォルトインデックス。
+    font_candidates: list[tuple[str, int | None]] = [
+        ("/System/Library/Fonts/ヒラギノ明朝 ProN.ttc", 2),  # W6（太字）
+        ("/System/Library/Fonts/ヒラギノ明朝 ProN.ttc", None),  # W3
+        ("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", None),
+        ("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", None),
+        ("/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc", None),
+        ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", None),
+        ("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc", None),
+        ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", None),
     ]
-    for font_path in font_candidates:
+    for font_path, index in font_candidates:
         try:
+            if index is not None:
+                return ImageFont.truetype(font_path, size, index=index)
             return ImageFont.truetype(font_path, size)
         except (OSError, IOError):
             continue
@@ -112,7 +118,6 @@ class FrameDrawer:
         self.layout = layout
         self.family = family
         self.font_name = _get_font(FONT_SIZE_NAME)
-        self.font_date = _get_font(FONT_SIZE_DATE)
         # キャンバスサイズ (余白を含む)
         self.canvas_width = int(layout.width + PADDING * 2)
         self.canvas_height = int(layout.height + PADDING * 2)
@@ -166,27 +171,24 @@ class FrameDrawer:
         fill = COLOR_MALE_FILL if person.sex == Sex.M else COLOR_FEMALE_FILL
         border = COLOR_MALE_BORDER if person.sex == Sex.M else COLOR_FEMALE_BORDER
 
-        # 矩形を描画
-        draw.rectangle([x0, y0, x1, y1], fill=fill, outline=border, width=BORDER_WIDTH)
-
-        # テキストを描画
-        name_text = person.name
-        date_text = str(person.birth_date)
+        # 角丸矩形を描画
+        draw.rounded_rectangle(
+            [x0, y0, x1, y1],
+            radius=CORNER_RADIUS,
+            fill=fill,
+            outline=border,
+            width=BORDER_WIDTH,
+        )
 
         # 名前（中央揃え）
+        name_text = person.name
         name_bbox = draw.textbbox((0, 0), name_text, font=self.font_name)
         name_w = name_bbox[2] - name_bbox[0]
+        name_h = name_bbox[3] - name_bbox[1]
         name_x = (x0 + x1) / 2 - name_w / 2
-        name_y = y0 + (y1 - y0) * 0.2
-
-        # 生年月日（中央揃え）
-        date_bbox = draw.textbbox((0, 0), date_text, font=self.font_date)
-        date_w = date_bbox[2] - date_bbox[0]
-        date_x = (x0 + x1) / 2 - date_w / 2
-        date_y = y0 + (y1 - y0) * 0.55
+        name_y = (y0 + y1) / 2 - name_h / 2
 
         draw.text((name_x, name_y), name_text, fill=COLOR_TEXT, font=self.font_name)
-        draw.text((date_x, date_y), date_text, fill=COLOR_TEXT, font=self.font_date)
 
     def _draw_edge(
         self, draw: ImageDraw.ImageDraw, edge: EdgeLayout, progress: float

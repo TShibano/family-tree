@@ -2,7 +2,7 @@
 
 線が動きながら描画されるアニメーション動画を生成する。
 - 人物ブロックは瞬間表示
-- 婚姻線は伸びるアニメーション
+- 婚姻線は伸びるアニメーション（1本の連続線として描画）
 - 親子線は上から下に伸びるアニメーション
 """
 
@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 from moviepy import VideoClip
+
 from family_tree.frame_drawer import FrameDrawer
 from family_tree.graph_builder import build_graph_with_persons, compute_scene_order
 from family_tree.layout_engine import EdgeLayout, GraphLayout, extract_layout
@@ -42,30 +43,61 @@ class AnimAction:
     duration: float  # 秒数
     # APPEAR: 新たに表示する人物ID
     new_person_ids: list[int] = field(default_factory=list)
-    # DRAW_LINE: アニメーションするエッジのインデックス (全体レイアウトの edges 内)
-    edge_indices: list[int] = field(default_factory=list)
+    # DRAW_LINE: アニメーションするエッジ (EdgeLayout オブジェクトを直接保持)
+    anim_edges: list[EdgeLayout] = field(default_factory=list)
 
 
-def _find_edge_indices(layout: GraphLayout, tail: str, head: str) -> list[int]:
-    """レイアウト内で指定した tail/head に一致するエッジのインデックスを返す。"""
-    indices = []
-    for i, edge in enumerate(layout.edges):
+def _find_edges(layout: GraphLayout, tail: str, head: str) -> list[EdgeLayout]:
+    """レイアウト内で指定した tail/head に一致するエッジを返す。"""
+    results = []
+    for edge in layout.edges:
         if edge.tail == tail and edge.head == head:
-            indices.append(i)
+            results.append(edge)
         elif edge.tail == head and edge.head == tail:
-            indices.append(i)
-    return indices
+            results.append(edge)
+    return results
 
 
-def _find_marriage_edges(
+def _merge_marriage_edges(
     layout: GraphLayout, person_id: int, spouse_id: int
-) -> list[int]:
-    """婚姻関係のエッジインデックスを返す（person - couple_node - spouse）。"""
-    couple_key = f"couple_{min(person_id, spouse_id)}_{max(person_id, spouse_id)}"
-    indices: list[int] = []
-    indices.extend(_find_edge_indices(layout, str(person_id), couple_key))
-    indices.extend(_find_edge_indices(layout, couple_key, str(spouse_id)))
-    return indices
+) -> list[EdgeLayout]:
+    """婚姻関係の2本のエッジを1本の連続パスに結合して返す。
+
+    person1 → couple_node → person2 の2本のエッジのポイント列を結合し、
+    person1 側から person2 側へ伸びる1本の連続エッジを生成する。
+    """
+    p1 = min(person_id, spouse_id)
+    p2 = max(person_id, spouse_id)
+    couple_key = f"couple_{p1}_{p2}"
+
+    # person1 → couple_node のエッジ
+    edges_to_couple = _find_edges(layout, str(p1), couple_key)
+    # couple_node → person2 のエッジ
+    edges_from_couple = _find_edges(layout, couple_key, str(p2))
+
+    if edges_to_couple and edges_from_couple:
+        edge1 = edges_to_couple[0]
+        edge2 = edges_from_couple[0]
+
+        # edge1 のポイント列: person1 側 → couple_node 方向に並べる
+        pts1 = list(edge1.points)
+        # tail が couple_key の場合は逆順にする（person1 から始めたい）
+        if edge1.tail == couple_key:
+            pts1 = pts1[::-1]
+
+        # edge2 のポイント列: couple_node → person2 方向に並べる
+        pts2 = list(edge2.points)
+        # tail が person2 の場合は逆順にする（couple_node から始めたい）
+        if edge2.tail == str(p2):
+            pts2 = pts2[::-1]
+
+        # 結合（couple_node 付近の重複点を除去）
+        merged_points = pts1 + pts2[1:]
+
+        return [EdgeLayout(tail=str(p1), head=str(p2), points=merged_points)]
+
+    # 結合できない場合は個別のエッジをそのまま返す
+    return edges_to_couple + edges_from_couple
 
 
 def _find_child_edges(
@@ -73,16 +105,18 @@ def _find_child_edges(
     parent1_id: int,
     parent2_id: int,
     child_id: int,
-) -> list[int]:
-    """親子関係のエッジインデックスを返す。"""
-    couple_key = f"couple_{min(parent1_id, parent2_id)}_{max(parent1_id, parent2_id)}"
+) -> list[EdgeLayout]:
+    """親子関係のエッジを返す。"""
+    p1 = min(parent1_id, parent2_id)
+    p2 = max(parent1_id, parent2_id)
+    couple_key = f"couple_{p1}_{p2}"
     # couple_node -> child のエッジ
-    indices = _find_edge_indices(layout, couple_key, str(child_id))
-    if not indices:
+    edges = _find_edges(layout, couple_key, str(child_id))
+    if not edges:
         # couple_node がない場合は直接親からのエッジ
-        indices.extend(_find_edge_indices(layout, str(parent1_id), str(child_id)))
-        indices.extend(_find_edge_indices(layout, str(parent2_id), str(child_id)))
-    return indices
+        edges.extend(_find_edges(layout, str(parent1_id), str(child_id)))
+        edges.extend(_find_edges(layout, str(parent2_id), str(child_id)))
+    return edges
 
 
 def build_action_sequence(
@@ -117,7 +151,8 @@ def build_action_sequence(
         shown.update(new_ids)
 
         # 新たに表示された人物に関連する線をアニメーション
-        edge_indices_to_animate: list[int] = []
+        edges_to_animate: list[EdgeLayout] = []
+        seen_edge_keys: set[tuple[str, str]] = set()
 
         for pid in scene_ids:
             person = family.get_person(pid)
@@ -126,35 +161,37 @@ def build_action_sequence(
 
             # 配偶者との婚姻線（配偶者が既に表示済みの場合）
             if person.spouse_id is not None and person.spouse_id in shown:
-                marriage_edges = _find_marriage_edges(layout, pid, person.spouse_id)
-                edge_indices_to_animate.extend(marriage_edges)
+                merged = _merge_marriage_edges(layout, pid, person.spouse_id)
+                for e in merged:
+                    key = (min(e.tail, e.head), max(e.tail, e.head))
+                    if key not in seen_edge_keys:
+                        edges_to_animate.append(e)
+                        seen_edge_keys.add(key)
 
             # 親からの親子線（両親が既に表示済みの場合）
             if person.parent_ids:
-                for parent_id in person.parent_ids:
-                    if parent_id in shown:
-                        child_edges = _find_child_edges(
-                            layout,
-                            person.parent_ids[0]
-                            if len(person.parent_ids) > 0
-                            else parent_id,
-                            person.parent_ids[1]
-                            if len(person.parent_ids) > 1
-                            else parent_id,
-                            pid,
-                        )
-                        edge_indices_to_animate.extend(child_edges)
-                        break  # 一度見つけたら十分
+                parents_shown = all(p in shown for p in person.parent_ids)
+                if parents_shown:
+                    child_edges = _find_child_edges(
+                        layout,
+                        person.parent_ids[0],
+                        person.parent_ids[1]
+                        if len(person.parent_ids) > 1
+                        else person.parent_ids[0],
+                        pid,
+                    )
+                    for e in child_edges:
+                        key = (min(e.tail, e.head), max(e.tail, e.head))
+                        if key not in seen_edge_keys:
+                            edges_to_animate.append(e)
+                            seen_edge_keys.add(key)
 
-        # 重複を除去
-        edge_indices_to_animate = list(dict.fromkeys(edge_indices_to_animate))
-
-        if edge_indices_to_animate:
+        if edges_to_animate:
             actions.append(
                 AnimAction(
                     action_type=ActionType.DRAW_LINE,
                     duration=line_duration,
-                    edge_indices=edge_indices_to_animate,
+                    anim_edges=edges_to_animate,
                 )
             )
 
@@ -222,8 +259,8 @@ def create_flow_animation(
     def make_frame(t: float) -> np.ndarray:
         """時刻 t でのフレームを生成する。"""
         visible_persons: set[int] = set()
-        completed_edges: set[int] = set()  # 完了済みエッジ
-        animating_edges: list[tuple[int, float]] = []  # (エッジインデックス, 進捗率)
+        completed_edges: list[EdgeLayout] = []
+        animating_edges: list[tuple[EdgeLayout, float]] = []
 
         for i, action in enumerate(actions):
             action_start = action_starts[i]
@@ -238,23 +275,21 @@ def create_flow_animation(
             elif action.action_type == ActionType.DRAW_LINE:
                 if t >= action_end:
                     # アニメーション完了
-                    completed_edges.update(action.edge_indices)
+                    completed_edges.extend(action.anim_edges)
                 else:
                     # アニメーション中
                     elapsed = t - action_start
                     progress = elapsed / action.duration if action.duration > 0 else 1.0
                     progress = min(max(progress, 0.0), 1.0)
-                    for ei in action.edge_indices:
-                        animating_edges.append((ei, progress))
+                    for edge in action.anim_edges:
+                        animating_edges.append((edge, progress))
 
         # 描画するエッジリストを構築
         visible_edge_list: list[tuple[EdgeLayout, float]] = []
-        for ei in completed_edges:
-            if 0 <= ei < len(layout.edges):
-                visible_edge_list.append((layout.edges[ei], 1.0))
-        for ei, progress in animating_edges:
-            if 0 <= ei < len(layout.edges) and ei not in completed_edges:
-                visible_edge_list.append((layout.edges[ei], progress))
+        for edge in completed_edges:
+            visible_edge_list.append((edge, 1.0))
+        for edge, progress in animating_edges:
+            visible_edge_list.append((edge, progress))
 
         img = drawer.draw_frame(visible_persons, visible_edge_list)
         return np.array(img)
