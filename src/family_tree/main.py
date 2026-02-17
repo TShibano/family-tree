@@ -47,3 +47,25 @@ def animate(input_path: str, output_path: str) -> None:
 
     result = create_animation(family, output_path)
     click.echo(f"出力しました: {result}")
+
+
+@cli.command(name="animate-flow")
+@click.option("--input", "input_path", required=True, help="入力CSVファイルパス")
+@click.option("--output", "output_path", required=True, help="出力MP4ファイルパス")
+@click.option(
+    "--line-duration",
+    type=float,
+    default=0.5,
+    help="線アニメーションの秒数（デフォルト: 0.5）",
+)
+def animate_flow(input_path: str, output_path: str, line_duration: float) -> None:
+    """家系図をフローアニメーション動画として出力する（線が動くバージョン）"""
+    from family_tree.flow_animator import create_flow_animation
+
+    try:
+        family = parse_csv(input_path)
+    except CsvParseError as e:
+        raise click.ClickException(str(e))
+
+    result = create_flow_animation(family, output_path, line_duration=line_duration)
+    click.echo(f"出力しました: {result}")
