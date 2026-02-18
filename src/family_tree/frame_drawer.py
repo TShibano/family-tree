@@ -13,6 +13,12 @@ from family_tree.layout_engine import EdgeLayout, GraphLayout, NodeLayout
 from family_tree.models import Family, Sex
 
 
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+    """#RRGGBB を (R, G, B) に変換する。"""
+    h = hex_color.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
 def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """フォントを取得する。システムフォントが見つからない場合はデフォルトを使用。"""
     # (パス, ttcインデックス) のリスト。None はデフォルトインデックス。
@@ -154,8 +160,10 @@ class FrameDrawer:
 
         colors = self.config.colors
         dims = self.config.dimensions
-        fill = colors.male_fill if person.sex == Sex.M else colors.female_fill
-        border = colors.male_border if person.sex == Sex.M else colors.female_border
+        default_fill = colors.male_fill if person.sex == Sex.M else colors.female_fill
+        default_border = colors.male_border if person.sex == Sex.M else colors.female_border
+        fill = _hex_to_rgb(person.fill_color) if person.fill_color else default_fill
+        border = _hex_to_rgb(person.border_color) if person.border_color else default_border
 
         # 角丸矩形を描画
         draw.rounded_rectangle(

@@ -23,6 +23,8 @@ class Person:
     sex: Sex
     parent_ids: list[int] = field(default_factory=list)
     spouse_id: int | None = None
+    fill_color: str | None = None
+    border_color: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
 
 

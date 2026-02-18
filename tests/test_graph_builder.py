@@ -20,6 +20,8 @@ def _make_person(
     sex: Sex = Sex.M,
     parent_ids: list[int] | None = None,
     spouse_id: int | None = None,
+    fill_color: str | None = None,
+    border_color: str | None = None,
 ) -> Person:
     return Person(
         id=id,
@@ -28,6 +30,8 @@ def _make_person(
         sex=sex,
         parent_ids=parent_ids or [],
         spouse_id=spouse_id,
+        fill_color=fill_color,
+        border_color=border_color,
     )
 
 
@@ -141,6 +145,41 @@ class TestBuildGraph:
         source = dot.source
         assert "lightblue" in source
         assert "lightpink" in source
+
+    def test_custom_fill_color_overrides_default(self) -> None:
+        """カスタム fill_color が設定されているとき、デフォルト色より優先される。"""
+        family = Family()
+        family.add_person(_make_person(1, "太郎", Sex.M, fill_color="#FF8800"))
+        dot = build_graph(family)
+        source = dot.source
+        assert "#FF8800" in source
+        assert "lightblue" not in source
+
+    def test_custom_border_color_applied(self) -> None:
+        """カスタム border_color が dot ソースに反映される。"""
+        family = Family()
+        family.add_person(_make_person(1, "太郎", Sex.M, border_color="#1A2B3C"))
+        dot = build_graph(family)
+        source = dot.source
+        assert "#1A2B3C" in source
+
+    def test_no_custom_color_uses_sex_default(self) -> None:
+        """カスタム色未指定のとき、性別デフォルト色が使われる。"""
+        family = Family()
+        family.add_person(_make_person(1, "太郎", Sex.M))
+        family.add_person(_make_person(2, "花子", Sex.F))
+        dot = build_graph(family)
+        source = dot.source
+        assert "lightblue" in source
+        assert "lightpink" in source
+
+    def test_partial_color_fill_only(self) -> None:
+        """fill_color のみ指定、border_color は未指定のケース。"""
+        family = Family()
+        family.add_person(_make_person(1, "太郎", Sex.M, fill_color="#AABBCC"))
+        dot = build_graph(family)
+        source = dot.source
+        assert "#AABBCC" in source
 
     def test_marriage_edges_no_arrow(self) -> None:
         """婚姻エッジは矢印なし（dir=none）。"""

@@ -150,8 +150,14 @@ def compute_scene_order(family: Family) -> list[list[int]]:
     return scenes
 
 
-def _get_node_color(person: Person) -> str:
+def _get_node_fill_color(person: Person) -> str:
+    if person.fill_color:
+        return person.fill_color
     return COLOR_MALE if person.sex == Sex.M else COLOR_FEMALE
+
+
+def _get_node_border_color(person: Person) -> str | None:
+    return person.border_color
 
 
 def _format_label(person: Person) -> str:
@@ -183,11 +189,14 @@ def build_graph(family: Family) -> graphviz.Digraph:
 
     # 人物ノードを追加
     for person in family.persons.values():
-        dot.node(
-            str(person.id),
-            label=_format_label(person),
-            fillcolor=_get_node_color(person),
-        )
+        node_attrs: dict[str, str] = {
+            "label": _format_label(person),
+            "fillcolor": _get_node_fill_color(person),
+        }
+        border = _get_node_border_color(person)
+        if border:
+            node_attrs["color"] = border
+        dot.node(str(person.id), **node_attrs)
 
     # 婚姻関係の処理（重複回避のためペアを追跡）
     processed_couples: set[tuple[int, int]] = set()
@@ -294,11 +303,14 @@ def build_graph_with_persons(family: Family, visible_ids: set[int]) -> graphviz.
     for person in family.persons.values():
         if person.id not in visible_ids:
             continue
-        dot.node(
-            str(person.id),
-            label=_format_label(person),
-            fillcolor=_get_node_color(person),
-        )
+        node_attrs: dict[str, str] = {
+            "label": _format_label(person),
+            "fillcolor": _get_node_fill_color(person),
+        }
+        border = _get_node_border_color(person)
+        if border:
+            node_attrs["color"] = border
+        dot.node(str(person.id), **node_attrs)
 
     processed_couples: set[tuple[int, int]] = set()
 

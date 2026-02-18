@@ -191,8 +191,133 @@ class TestValidation:
             parse_csv(csv_path)
 
 
+class TestCustomColors:
+    def test_fill_color_parsed(self, tmp_path: Path) -> None:
+        """fill_color 列の値が Person.fill_color に反映される。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color
+            1,太郎,1940-03-15,M,,,#FF8800
+        """)
+        csv_path = tmp_path / "fill.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        family = parse_csv(csv_path)
+        taro = family.get_person(1)
+        assert taro is not None
+        assert taro.fill_color == "#FF8800"
+
+    def test_border_color_parsed(self, tmp_path: Path) -> None:
+        """border_color 列の値が Person.border_color に反映される。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,border_color
+            1,太郎,1940-03-15,M,,,#1A2B3C
+        """)
+        csv_path = tmp_path / "border.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        family = parse_csv(csv_path)
+        taro = family.get_person(1)
+        assert taro is not None
+        assert taro.border_color == "#1A2B3C"
+
+    def test_both_colors_parsed(self, tmp_path: Path) -> None:
+        """fill_color と border_color の両方が正しく取得できる。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color,border_color
+            1,太郎,1940-03-15,M,,,#aabbcc,#ddeeff
+        """)
+        csv_path = tmp_path / "both.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        family = parse_csv(csv_path)
+        taro = family.get_person(1)
+        assert taro is not None
+        # 大文字に正規化される
+        assert taro.fill_color == "#AABBCC"
+        assert taro.border_color == "#DDEEFF"
+
+    def test_empty_color_columns_result_in_none(self, tmp_path: Path) -> None:
+        """色列が空欄の場合は None になる。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color,border_color
+            1,太郎,1940-03-15,M,,,
+        """)
+        csv_path = tmp_path / "empty_colors.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        family = parse_csv(csv_path)
+        taro = family.get_person(1)
+        assert taro is not None
+        assert taro.fill_color is None
+        assert taro.border_color is None
+
+    def test_no_color_columns_defaults_to_none(self, sample_csv: Path) -> None:
+        """色列がない CSV では fill_color / border_color が None になる（後方互換）。"""
+        family = parse_csv(sample_csv)
+        for person in family.persons.values():
+            assert person.fill_color is None
+            assert person.border_color is None
+
+    def test_color_columns_not_in_metadata(self, tmp_path: Path) -> None:
+        """fill_color / border_color は metadata に含まれない。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color,border_color
+            1,太郎,1940-03-15,M,,,#FF0000,#0000FF
+        """)
+        csv_path = tmp_path / "not_in_meta.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        family = parse_csv(csv_path)
+        taro = family.get_person(1)
+        assert taro is not None
+        assert "fill_color" not in taro.metadata
+        assert "border_color" not in taro.metadata
+
+    def test_invalid_fill_color_format(self, tmp_path: Path) -> None:
+        """不正な fill_color 値で CsvParseError が発生する。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color
+            1,太郎,1940-03-15,M,,,red
+        """)
+        csv_path = tmp_path / "bad_fill.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        with pytest.raises(CsvParseError, match="fill_color"):
+            parse_csv(csv_path)
+
+    def test_invalid_border_color_format(self, tmp_path: Path) -> None:
+        """不正な border_color 値で CsvParseError が発生する。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,border_color
+            1,太郎,1940-03-15,M,,,#GGG
+        """)
+        csv_path = tmp_path / "bad_border.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        with pytest.raises(CsvParseError, match="border_color"):
+            parse_csv(csv_path)
+
+    def test_invalid_color_too_long(self, tmp_path: Path) -> None:
+        """7文字以上の hex 値はエラー。"""
+        csv_content = textwrap.dedent("""\
+            id,name,birth_date,sex,parent_ids,spouse_id,fill_color
+            1,太郎,1940-03-15,M,,,#1234567
+        """)
+        csv_path = tmp_path / "too_long.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        with pytest.raises(CsvParseError, match="fill_color"):
+            parse_csv(csv_path)
+
+
 class TestSampleCSV:
     def test_parse_sample_csv(self) -> None:
         """examples/sample.csv が正常に読み込めることを確認。"""
         family = parse_csv("examples/sample.csv")
         assert len(family.persons) == 12
+
+    def test_sample_csv_custom_colors(self) -> None:
+        """examples/sample.csv のカスタム色が正しく読み込まれる。"""
+        family = parse_csv("examples/sample.csv")
+        # ID=1 (山田太郎) はカスタム色が設定されている
+        taro = family.get_person(1)
+        assert taro is not None
+        assert taro.fill_color == "#D4A853"
+        assert taro.border_color == "#8B6914"
+        # ID=3 (山田一郎) は色指定なし
+        ichiro = family.get_person(3)
+        assert ichiro is not None
+        assert ichiro.fill_color is None
+        assert ichiro.border_color is None

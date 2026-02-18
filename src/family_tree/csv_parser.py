@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import csv
+import re
 from datetime import date
 from pathlib import Path
 
 from family_tree.models import Family, Person, Sex
 
 REQUIRED_COLUMNS = {"id", "name", "birth_date", "sex", "parent_ids", "spouse_id"}
+COLOR_COLUMNS = {"fill_color", "border_color"}
 
 
 class CsvParseError(Exception):
@@ -38,7 +40,7 @@ def parse_csv(path: str | Path) -> Family:
         headers = set(reader.fieldnames)
         _validate_columns(headers)
 
-        extra_columns = headers - REQUIRED_COLUMNS
+        extra_columns = headers - REQUIRED_COLUMNS - COLOR_COLUMNS
         rows = list(reader)
 
     persons = _parse_rows(rows, extra_columns)
@@ -55,6 +57,15 @@ def _validate_columns(headers: set[str]) -> None:
     missing = REQUIRED_COLUMNS - headers
     if missing:
         raise CsvParseError(f"必須カラムが不足しています: {', '.join(sorted(missing))}")
+
+
+def _validate_hex_color(value: str, column: str) -> str:
+    """#RRGGBB 形式を検証して正規化した値を返す。不正な場合は ValueError を発生させる。"""
+    if not re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+        raise ValueError(
+            f"{column} の値が不正です（#RRGGBB 形式で指定してください）: {value!r}"
+        )
+    return value.upper()
 
 
 def _parse_rows(rows: list[dict[str, str]], extra_columns: set[str]) -> list[Person]:
@@ -99,6 +110,16 @@ def _parse_row(row: dict[str, str], extra_columns: set[str]) -> Person:
     spouse_id_str = row["spouse_id"].strip()
     spouse_id: int | None = int(spouse_id_str) if spouse_id_str else None
 
+    fill_color_str = (row.get("fill_color") or "").strip()
+    fill_color: str | None = None
+    if fill_color_str:
+        fill_color = _validate_hex_color(fill_color_str, "fill_color")
+
+    border_color_str = (row.get("border_color") or "").strip()
+    border_color: str | None = None
+    if border_color_str:
+        border_color = _validate_hex_color(border_color_str, "border_color")
+
     metadata: dict[str, str] = {}
     for col in extra_columns:
         value = row.get(col, "")
@@ -112,6 +133,8 @@ def _parse_row(row: dict[str, str], extra_columns: set[str]) -> Person:
         sex=sex,
         parent_ids=parent_ids,
         spouse_id=spouse_id,
+        fill_color=fill_color,
+        border_color=border_color,
         metadata=metadata,
     )
 
