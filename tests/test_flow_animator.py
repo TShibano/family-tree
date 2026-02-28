@@ -7,7 +7,7 @@ from family_tree.config import AppConfig, AnimationConfig
 from family_tree.csv_parser import parse_csv
 from family_tree.flow_animator import (
     ActionType,
-    _merge_marriage_edges,
+    _get_marriage_edges_toward_center,
     build_action_sequence,
     create_flow_animation,
 )
@@ -114,24 +114,23 @@ class TestEdgeEndpointFix:
         assert abs(edges_from_1[0].points[0][0] - node1.right) < 1.0
 
 
-class TestMergeMarriageEdges:
-    def test_merge_produces_single_edge(self) -> None:
-        """婚姻エッジの結合が1本のエッジを返す。"""
+class TestMarriageEdgesTowardCenter:
+    def test_returns_two_edges(self) -> None:
+        """婚姻エッジが2本（各人物→中心点）返る。"""
         family = _build_two_gen_family()
         layout = _get_layout(family)
-        merged = _merge_marriage_edges(layout, 1, 2)
-        assert len(merged) == 1
+        edges = _get_marriage_edges_toward_center(layout, 1, 2)
+        assert len(edges) == 2
 
-    def test_merged_edge_spans_both_persons(self) -> None:
-        """結合エッジが person1 から person2 に渡る。"""
+    def test_both_edges_point_toward_couple_node(self) -> None:
+        """2本とも couple_node に向かうエッジである。"""
         family = _build_two_gen_family()
         layout = _get_layout(family)
-        merged = _merge_marriage_edges(layout, 1, 2)
-        edge = merged[0]
-        assert edge.tail == "1"
-        assert edge.head == "2"
-        # ポイント数は元の2本の合計 - 1（重複除去）
-        assert len(edge.points) > 2
+        edges = _get_marriage_edges_toward_center(layout, 1, 2)
+        couple_key = "couple_1_2"
+        for edge in edges:
+            assert edge.head == couple_key
+            assert len(edge.points) >= 2
 
 
 class TestBuildActionSequence:

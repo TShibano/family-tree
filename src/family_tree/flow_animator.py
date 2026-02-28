@@ -54,65 +54,82 @@ def _find_edges(layout: GraphLayout, tail: str, head: str) -> list[EdgeLayout]:
     return results
 
 
-def _merge_marriage_edges(
+def _get_marriage_edges_toward_center(
     layout: GraphLayout, person_id: int, spouse_id: int
 ) -> list[EdgeLayout]:
-    """婚姻関係の2本のエッジを1本の連続パスに結合して返す。
+    """婚姻関係のエッジを2本（各人物→中心点）返す。
 
-    person1 → couple_node → person2 の2本のエッジのポイント列を結合し、
-    person1 側から person2 側へ伸びる1本の連続エッジを生成する。
+    person1 側と person2 側それぞれから couple_node（仮想中心点）に向かう
+    エッジを生成し、両側から同時にアニメーションする。
     """
     p1 = min(person_id, spouse_id)
     p2 = max(person_id, spouse_id)
     couple_key = f"couple_{p1}_{p2}"
 
-    # person1 → couple_node のエッジ
     edges_to_couple = _find_edges(layout, str(p1), couple_key)
-    # couple_node → person2 のエッジ
     edges_from_couple = _find_edges(layout, couple_key, str(p2))
 
-    if edges_to_couple and edges_from_couple:
-        edge1 = edges_to_couple[0]
-        edge2 = edges_from_couple[0]
+    if not edges_to_couple or not edges_from_couple:
+        return edges_to_couple + edges_from_couple
 
-        # edge1 のポイント列: person1 側 → couple_node 方向に並べる
-        pts1 = list(edge1.points)
-        # tail が couple_key の場合は逆順にする（person1 から始めたい）
-        if edge1.tail == couple_key:
-            pts1 = pts1[::-1]
+    edge1 = edges_to_couple[0]
+    edge2 = edges_from_couple[0]
 
-        # edge2 のポイント列: couple_node → person2 方向に並べる
-        pts2 = list(edge2.points)
-        # tail が person2 の場合は逆順にする（couple_node から始めたい）
-        if edge2.tail == str(p2):
-            pts2 = pts2[::-1]
+    # Edge 1: person1 → couple_node（person1 側から中心点へ）
+    pts1 = list(edge1.points)
+    if edge1.tail == couple_key:
+        pts1 = pts1[::-1]
 
-        # 結合（couple_node 付近の重複点を除去）
-        merged_points = pts1 + pts2[1:]
+    # Edge 2: person2 → couple_node（person2 側から中心点へ）
+    pts2 = list(edge2.points)
+    if edge2.tail == couple_key:
+        pts2 = pts2[::-1]  # couple_node→person2 を逆順に: person2→couple_node
 
-        return [EdgeLayout(tail=str(p1), head=str(p2), points=merged_points)]
-
-    # 結合できない場合は個別のエッジをそのまま返す
-    return edges_to_couple + edges_from_couple
+    return [
+        EdgeLayout(tail=str(p1), head=couple_key, points=pts1),
+        EdgeLayout(tail=str(p2), head=couple_key, points=pts2),
+    ]
 
 
-def _find_child_edges(
+def _build_comb_child_edge(
     layout: GraphLayout,
     parent1_id: int,
     parent2_id: int,
     child_id: int,
 ) -> list[EdgeLayout]:
-    """親子関係のエッジを返す。"""
+    """子供への櫛（くし）形エッジを生成する。
+
+    couple_node から child へ向かう L字パス:
+      (couple_cx, couple_cy) → (couple_cx, bar_y) → (child_cx, bar_y) → (child_cx, child_top)
+
+    bar_y は couple_node と子供の上辺の中間点。
+    """
     p1 = min(parent1_id, parent2_id)
     p2 = max(parent1_id, parent2_id)
     couple_key = f"couple_{p1}_{p2}"
-    # couple_node -> child のエッジ
-    edges = _find_edges(layout, couple_key, str(child_id))
-    if not edges:
-        # couple_node がない場合は直接親からのエッジ
-        edges.extend(_find_edges(layout, str(parent1_id), str(child_id)))
-        edges.extend(_find_edges(layout, str(parent2_id), str(child_id)))
-    return edges
+
+    couple_node = layout.nodes.get(couple_key)
+    child_node = layout.nodes.get(str(child_id))
+
+    if couple_node is None or child_node is None:
+        # フォールバック: 既存エッジを返す
+        edges = _find_edges(layout, couple_key, str(child_id))
+        if not edges:
+            edges.extend(_find_edges(layout, str(parent1_id), str(child_id)))
+            edges.extend(_find_edges(layout, str(parent2_id), str(child_id)))
+        return edges
+
+    # bar_y: couple_node と子供の上辺の中間
+    bar_y = (couple_node.cy + child_node.top) / 2
+
+    points = [
+        (couple_node.cx, couple_node.cy),
+        (couple_node.cx, bar_y),
+        (child_node.cx, bar_y),
+        (child_node.cx, child_node.top),
+    ]
+
+    return [EdgeLayout(tail=couple_key, head=str(child_id), points=points)]
 
 
 def build_action_sequence(
@@ -147,22 +164,17 @@ def build_action_sequence(
 
         # 配偶者との婚姻線（配偶者が既に表示済みの場合）
         if person.spouse_id is not None and person.spouse_id in shown:
-            merged = _merge_marriage_edges(layout, pid, person.spouse_id)
-            edges_to_animate.extend(merged)
+            marriage_edges = _get_marriage_edges_toward_center(layout, pid, person.spouse_id)
+            edges_to_animate.extend(marriage_edges)
 
         # 親からの親子線（両親が既に表示済みの場合）
         if person.parent_ids:
             parents_shown = all(p in shown for p in person.parent_ids)
             if parents_shown:
-                child_edges = _find_child_edges(
-                    layout,
-                    person.parent_ids[0],
-                    person.parent_ids[1]
-                    if len(person.parent_ids) > 1
-                    else person.parent_ids[0],
-                    pid,
-                )
-                edges_to_animate.extend(child_edges)
+                p1 = person.parent_ids[0]
+                p2 = person.parent_ids[1] if len(person.parent_ids) > 1 else person.parent_ids[0]
+                comb_edges = _build_comb_child_edge(layout, p1, p2, pid)
+                edges_to_animate.extend(comb_edges)
 
         if edges_to_animate:
             actions.append(
