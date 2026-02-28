@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import math
+
 from PIL import Image, ImageDraw, ImageFont
 
 from family_tree.config import AppConfig
@@ -17,6 +19,37 @@ def _load_background(path: str, size: tuple[int, int]) -> Image.Image:
     """背景画像を読み込み、キャンバスサイズに合わせてリサイズして返す（RGBA）。"""
     img = Image.open(path).convert("RGBA")
     return img.resize(size, Image.LANCZOS)
+
+
+def _draw_double_line(
+    draw: ImageDraw.ImageDraw,
+    points: list[tuple[float, float]],
+    color: tuple[int, int, int],
+    base_width: int,
+) -> None:
+    """2本の平行線（二重線）を描画する。"""
+    single_width = max(3, base_width // 4)
+    offset = base_width // 3  # 中心から各線までの距離
+
+    for i in range(len(points) - 1):
+        p1 = points[i]
+        p2 = points[i + 1]
+        dx = p2[0] - p1[0]
+        dy = p2[1] - p1[1]
+        length = math.hypot(dx, dy)
+        if length == 0:
+            continue
+        # 線分に垂直な方向（正規化）
+        px = -dy / length
+        py = dx / length
+        for sign in (-1, 1):
+            ox = sign * offset * px
+            oy = sign * offset * py
+            draw.line(
+                [(p1[0] + ox, p1[1] + oy), (p2[0] + ox, p2[1] + oy)],
+                fill=color,
+                width=single_width,
+            )
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -184,10 +217,9 @@ class FrameDrawer:
         fill = _hex_to_rgb(person.fill_color) if person.fill_color else default_fill
         border = _hex_to_rgb(person.border_color) if person.border_color else default_border
 
-        # 角丸矩形を描画
-        draw.rounded_rectangle(
+        # 矩形を描画
+        draw.rectangle(
             [x0, y0, x1, y1],
-            radius=dims.corner_radius,
             fill=fill,
             outline=border,
             width=dims.border_width,
@@ -225,29 +257,33 @@ class FrameDrawer:
 
         # 婚姻線か親子線かを判定（couple_ ノードが含まれるか）
         is_marriage = edge.tail.startswith("couple_") or edge.head.startswith("couple_")
-        # 婚姻線: tail/head が couple_ ノードと人物ノードの場合
-        # 同じ rank の場合は婚姻線とみなす
         tail_node = self.layout.nodes.get(edge.tail)
         head_node = self.layout.nodes.get(edge.head)
+        use_marriage_line = False
         if tail_node and head_node:
             # Y座標がほぼ同じなら婚姻線
             if abs(tail_node.cy - head_node.cy) < 5:
+                use_marriage_line = True
                 color = colors.marriage_line
                 width = dims.line_width_marriage
             else:
                 color = colors.child_line
                 width = dims.line_width_child
         elif is_marriage:
+            use_marriage_line = True
             color = colors.marriage_line
             width = dims.line_width_marriage
         else:
             color = colors.child_line
             width = dims.line_width_child
 
-        # 線を描画
-        for i in range(len(draw_points) - 1):
-            draw.line(
-                [draw_points[i], draw_points[i + 1]],
-                fill=color,
-                width=width,
-            )
+        # 線を描画（婚姻線は二重線）
+        if use_marriage_line:
+            _draw_double_line(draw, draw_points, color, width)
+        else:
+            for i in range(len(draw_points) - 1):
+                draw.line(
+                    [draw_points[i], draw_points[i + 1]],
+                    fill=color,
+                    width=width,
+                )

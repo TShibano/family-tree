@@ -192,7 +192,7 @@ def build_graph(
             "fontname": "Helvetica",
             "fontsize": "11",
             "shape": "box",
-            "style": "filled,rounded",
+            "style": "filled",
         },
         edge_attr={
             "fontname": "Helvetica",
@@ -310,7 +310,7 @@ def build_graph_with_persons(
             "fontname": "Helvetica",
             "fontsize": "11",
             "shape": "box",
-            "style": "filled,rounded",
+            "style": "filled",
         },
         edge_attr={
             "fontname": "Helvetica",
