@@ -45,10 +45,11 @@ class AnimationConfig:
     """アニメーションパラメータの設定。"""
 
     fps: int = 24
-    line_duration: float = 0.5   # 線アニメーション秒数（animate-flow）
-    pause_duration: float = 0.3  # シーン間の静止秒数（animate-flow）
-    final_pause: float = 2.0     # 最後の全体表示秒数（animate-flow）
-    scene_duration: float = 2.0  # 各シーンの表示秒数（animate）
+    line_duration: float = 0.5    # 線アニメーション秒数（animate-flow）
+    appear_duration: float = 0.3  # フェードイン秒数（0.0で瞬間表示）
+    pause_duration: float = 0.3   # シーン間の静止秒数（animate-flow）
+    final_pause: float = 2.0      # 最後の全体表示秒数（animate-flow）
+    scene_duration: float = 2.0   # 各シーンの表示秒数（animate）
 
 
 @dataclass
@@ -85,7 +86,7 @@ _DIM_INT_KEYS = (
 )
 
 _ANIM_INT_KEYS = ("fps",)
-_ANIM_FLOAT_KEYS = ("line_duration", "pause_duration", "final_pause", "scene_duration")
+_ANIM_FLOAT_KEYS = ("line_duration", "appear_duration", "pause_duration", "final_pause", "scene_duration")
 
 
 def _validate_rgb(value: object, key: str) -> tuple[int, int, int]:

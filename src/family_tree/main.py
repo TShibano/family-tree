@@ -73,11 +73,18 @@ def animate(input_path: str, output_path: str, config_path: str | None) -> None:
     default=None,
     help="線アニメーションの秒数（省略時は設定ファイルの値を使用）",
 )
+@click.option(
+    "--appear-duration",
+    type=float,
+    default=None,
+    help="フェードインアニメーションの秒数（0.0で瞬間表示、省略時は設定ファイルの値を使用）",
+)
 @_CONFIG_OPTION
 def animate_flow(
     input_path: str,
     output_path: str,
     line_duration: float | None,
+    appear_duration: float | None,
     config_path: str | None,
 ) -> None:
     """家系図をフローアニメーション動画として出力する（線が動くバージョン）"""
@@ -89,5 +96,9 @@ def animate_flow(
         raise click.ClickException(str(e))
 
     config = load_config(Path(config_path) if config_path else None)
-    result = create_flow_animation(family, output_path, config, line_duration=line_duration)
+    result = create_flow_animation(
+        family, output_path, config,
+        line_duration=line_duration,
+        appear_duration=appear_duration,
+    )
     click.echo(f"出力しました: {result}")

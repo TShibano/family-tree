@@ -159,12 +159,13 @@ def build_action_sequence(
     family: Family,
     layout: GraphLayout,
     line_duration: float = 0.5,
+    appear_duration: float = 0.3,
     pause_duration: float = 0.3,
 ) -> list[AnimAction]:
     """グループ単位でアニメーションアクション列を構築する。
 
     各グループに対して:
-      1. APPEAR   : グループ全員を同時瞬間表示
+      1. APPEAR   : グループ全員を同時フェードイン（appear_duration 秒）
       2. DRAW_LINE: 親子線（両親が表示済みの場合、グループ全員分まとめて）
       3. DRAW_LINE: 婚姻線（配偶者が表示済みの場合、グループ全員分まとめて）
       4. PAUSE    : 静止
@@ -182,12 +183,12 @@ def build_action_sequence(
     for group_key in groups_order:
         persons_in_group = groups_map[group_key]
 
-        # 1. APPEAR（グループ全員を同時瞬間表示）
+        # 1. APPEAR（グループ全員を同時フェードイン）
         group_ids = [p.id for p in persons_in_group]
         actions.append(
             AnimAction(
                 action_type=ActionType.APPEAR,
-                duration=0.0,
+                duration=appear_duration,
                 new_person_ids=group_ids,
             )
         )
@@ -245,6 +246,7 @@ def create_flow_animation(
     output_path: str | Path,
     config: AppConfig,
     line_duration: float | None = None,
+    appear_duration: float | None = None,
 ) -> Path:
     """フローアニメーション動画（MP4）を生成する。
 
@@ -253,6 +255,7 @@ def create_flow_animation(
         output_path: 出力MP4ファイルパス
         config: アプリケーション設定
         line_duration: 線アニメーション秒数。None の場合は config の値を使用。
+        appear_duration: フェードイン秒数。None の場合は config の値を使用。
 
     Returns:
         出力されたファイルのパス
@@ -262,6 +265,7 @@ def create_flow_animation(
 
     anim = config.animation
     effective_line_duration = line_duration if line_duration is not None else anim.line_duration
+    effective_appear_duration = appear_duration if appear_duration is not None else anim.appear_duration
     pause_duration = anim.pause_duration
     final_pause = anim.final_pause
     fps = anim.fps
@@ -273,7 +277,9 @@ def create_flow_animation(
     scale_node_widths(layout, 1.2)
 
     # アクションシーケンスを構築
-    actions = build_action_sequence(family, layout, effective_line_duration, pause_duration)
+    actions = build_action_sequence(
+        family, layout, effective_line_duration, effective_appear_duration, pause_duration
+    )
 
     # 最後の全体表示を追加
     actions.append(AnimAction(action_type=ActionType.PAUSE, duration=final_pause))
@@ -295,7 +301,7 @@ def create_flow_animation(
     # 状態管理: 各時刻での描画状態を計算する関数
     def make_frame(t: float) -> np.ndarray:
         """時刻 t でのフレームを生成する。"""
-        visible_persons: set[int] = set()
+        visible_persons: dict[int, float] = {}  # person_id → alpha (0.0〜1.0)
         completed_edges: list[EdgeLayout] = []
         animating_edges: list[tuple[EdgeLayout, float]] = []
 
@@ -307,7 +313,16 @@ def create_flow_animation(
                 break
 
             if action.action_type == ActionType.APPEAR:
-                visible_persons.update(action.new_person_ids)
+                if action.duration == 0 or t >= action_end:
+                    # 瞬間表示 or フェードイン完了
+                    for pid in action.new_person_ids:
+                        visible_persons[pid] = 1.0
+                else:
+                    # フェードイン中
+                    elapsed = t - action_start
+                    progress = min(elapsed / action.duration, 1.0)
+                    for pid in action.new_person_ids:
+                        visible_persons[pid] = progress
 
             elif action.action_type == ActionType.DRAW_LINE:
                 if t >= action_end:

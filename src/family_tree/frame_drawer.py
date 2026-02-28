@@ -162,13 +162,13 @@ class FrameDrawer:
 
     def draw_frame(
         self,
-        visible_person_ids: set[int],
+        visible_person_ids: dict[int, float],
         visible_edges: list[tuple[EdgeLayout, float]],
     ) -> Image.Image:
         """1フレームを描画する。
 
         Args:
-            visible_person_ids: 表示する人物のIDセット
+            visible_person_ids: 表示する人物の ID → alpha (0.0〜1.0) マッピング
             visible_edges: 表示するエッジと進捗率のリスト [(edge, progress), ...]
                            progress: 0.0〜1.0
 
@@ -185,20 +185,48 @@ class FrameDrawer:
         for edge, progress in visible_edges:
             self._draw_edge(draw, edge, progress)
 
-        # 人物ノードを描画
-        for pid in visible_person_ids:
-            node_name = str(pid)
-            if node_name in self.layout.nodes:
-                person = self.family.get_person(pid)
-                if person is not None:
-                    self._draw_person_node(draw, self.layout.nodes[node_name], person)
+        # alpha=1.0 の人物は直接描画（効率優先）
+        for pid, alpha in visible_person_ids.items():
+            if alpha >= 1.0:
+                node_name = str(pid)
+                if node_name in self.layout.nodes:
+                    person = self.family.get_person(pid)
+                    if person is not None:
+                        self._draw_person_node(draw, self.layout.nodes[node_name], person)
+
+        # alpha < 1.0 の人物はオーバーレイ経由でフェードイン合成
+        # ImageDraw の RGBA 描画はバージョン依存のため、
+        # 透明オーバーレイ → alpha スケール → alpha_composite で確実に合成する
+        fading = [(pid, a) for pid, a in visible_person_ids.items() if 0.0 < a < 1.0]
+        if fading:
+            # 同じ alpha 値のノードは1枚のオーバーレイにまとめる
+            alpha_groups: dict[float, list[int]] = {}
+            for pid, a in fading:
+                alpha_groups.setdefault(round(a, 4), []).append(pid)
+
+            for alpha_val, pids in alpha_groups.items():
+                overlay = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
+                overlay_draw = ImageDraw.Draw(overlay)
+                for pid in pids:
+                    node_name = str(pid)
+                    if node_name in self.layout.nodes:
+                        person = self.family.get_person(pid)
+                        if person is not None:
+                            self._draw_person_node(
+                                overlay_draw, self.layout.nodes[node_name], person
+                            )
+                # アルファチャネルを alpha_val でスケールして合成
+                r, g, b, a_ch = overlay.split()
+                a_ch = a_ch.point(lambda v: int(v * alpha_val))  # noqa: B023
+                overlay = Image.merge("RGBA", (r, g, b, a_ch))
+                img.alpha_composite(overlay)
 
         return img
 
     def _draw_person_node(
         self, draw: ImageDraw.ImageDraw, node: NodeLayout, person: object
     ) -> None:
-        """人物ブロックを描画する。"""
+        """人物ブロックをフル不透明で描画する。フェードインは draw_frame() 側で制御する。"""
         from family_tree.models import Person
 
         if not isinstance(person, Person):
@@ -217,7 +245,7 @@ class FrameDrawer:
         fill = _hex_to_rgb(person.fill_color) if person.fill_color else default_fill
         border = _hex_to_rgb(person.border_color) if person.border_color else default_border
 
-        # 矩形を描画
+        # 矩形を描画（フル不透明）
         draw.rectangle(
             [x0, y0, x1, y1],
             fill=fill,

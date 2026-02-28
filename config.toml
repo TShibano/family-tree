@@ -45,8 +45,9 @@ font_size_name      = 90  # 名前フォントサイズ (px)
 # アニメーションパラメータ
 # ---------------------------------------------------------------------------
 [animation]
-fps            = 24   # フレームレート
-line_duration  = 0.5  # 線アニメーション秒数（animate-flow）
-pause_duration = 0.3  # シーン間の静止秒数（animate-flow）
+fps              = 24   # フレームレート
+line_duration    = 0.8  # 線アニメーション秒数（animate-flow）
+appear_duration  = 0.8  # フェードイン秒数（0.0で瞬間表示）（animate-flow）
+pause_duration   = 0.8  # シーン間の静止秒数（animate-flow）
 final_pause    = 2.0  # 最後の全体表示秒数（animate-flow）
 scene_duration = 2.0  # 各シーンの表示秒数（animate）
