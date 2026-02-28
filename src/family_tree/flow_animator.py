@@ -158,7 +158,8 @@ def _collect_groups(
 def build_action_sequence(
     family: Family,
     layout: GraphLayout,
-    line_duration: float = 0.5,
+    marriage_line_duration: float = 0.5,
+    child_line_duration: float = 0.5,
     appear_duration: float = 0.3,
     pause_duration: float = 0.3,
 ) -> list[AnimAction]:
@@ -215,7 +216,7 @@ def build_action_sequence(
             actions.append(
                 AnimAction(
                     action_type=ActionType.DRAW_LINE,
-                    duration=line_duration,
+                    duration=child_line_duration,
                     anim_edges=child_edges,
                 )
             )
@@ -246,7 +247,7 @@ def build_action_sequence(
             actions.append(
                 AnimAction(
                     action_type=ActionType.DRAW_LINE,
-                    duration=line_duration,
+                    duration=marriage_line_duration,
                     anim_edges=marriage_edges,
                 )
             )
@@ -285,7 +286,13 @@ def create_flow_animation(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     anim = config.animation
-    effective_line_duration = line_duration if line_duration is not None else anim.line_duration
+    base_line_duration = line_duration if line_duration is not None else anim.line_duration
+    effective_marriage_duration = (
+        anim.marriage_line_duration if anim.marriage_line_duration is not None else base_line_duration
+    )
+    effective_child_duration = (
+        anim.child_line_duration if anim.child_line_duration is not None else base_line_duration
+    )
     effective_appear_duration = appear_duration if appear_duration is not None else anim.appear_duration
     pause_duration = anim.pause_duration
     final_pause = anim.final_pause
@@ -299,7 +306,8 @@ def create_flow_animation(
 
     # アクションシーケンスを構築
     actions = build_action_sequence(
-        family, layout, effective_line_duration, effective_appear_duration, pause_duration
+        family, layout, effective_marriage_duration, effective_child_duration,
+        effective_appear_duration, pause_duration,
     )
 
     # 最後の全体表示を追加

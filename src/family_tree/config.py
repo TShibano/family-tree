@@ -45,11 +45,13 @@ class AnimationConfig:
     """アニメーションパラメータの設定。"""
 
     fps: int = 24
-    line_duration: float = 0.5    # 線アニメーション秒数（animate-flow）
-    appear_duration: float = 0.3  # フェードイン秒数（0.0で瞬間表示）
-    pause_duration: float = 0.3   # シーン間の静止秒数（animate-flow）
-    final_pause: float = 2.0      # 最後の全体表示秒数（animate-flow）
-    scene_duration: float = 2.0   # 各シーンの表示秒数（animate）
+    line_duration: float = 0.5              # 線アニメーション秒数（animate-flow）
+    marriage_line_duration: float | None = None  # 婚姻線アニメーション秒数（Noneで line_duration を使用）
+    child_line_duration: float | None = None     # 親子線アニメーション秒数（Noneで line_duration を使用）
+    appear_duration: float = 0.3            # フェードイン秒数（0.0で瞬間表示）
+    pause_duration: float = 0.3            # シーン間の静止秒数（animate-flow）
+    final_pause: float = 2.0               # 最後の全体表示秒数（animate-flow）
+    scene_duration: float = 2.0            # 各シーンの表示秒数（animate）
 
 
 @dataclass
@@ -87,6 +89,7 @@ _DIM_INT_KEYS = (
 
 _ANIM_INT_KEYS = ("fps",)
 _ANIM_FLOAT_KEYS = ("line_duration", "appear_duration", "pause_duration", "final_pause", "scene_duration")
+_ANIM_OPT_FLOAT_KEYS = ("marriage_line_duration", "child_line_duration")
 
 
 def _validate_rgb(value: object, key: str) -> tuple[int, int, int]:
@@ -155,6 +158,16 @@ def _build_animation(data: dict[str, object]) -> AnimationConfig:
                 sys.exit(1)
             setattr(cfg, key, val)
     for key in _ANIM_FLOAT_KEYS:
+        if key in data:
+            val = data[key]
+            if not isinstance(val, (int, float)):
+                print(
+                    f"設定エラー: animation.{key} は数値で指定してください",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            setattr(cfg, key, float(val))
+    for key in _ANIM_OPT_FLOAT_KEYS:
         if key in data:
             val = data[key]
             if not isinstance(val, (int, float)):

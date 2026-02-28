@@ -46,8 +46,11 @@ font_size_name      = 90  # 名前フォントサイズ (px)
 # ---------------------------------------------------------------------------
 [animation]
 fps              = 24   # フレームレート
-line_duration    = 0.8  # 線アニメーション秒数（animate-flow）
-appear_duration  = 0.8  # フェードイン秒数（0.0で瞬間表示）（animate-flow）
-pause_duration   = 0.8  # シーン間の静止秒数（animate-flow）
+line_duration    = 0.8  # 線アニメーション秒数の基準値（animate-flow）
+# marriage_line_duration と child_line_duration を省略すると line_duration が使われる
+marriage_line_duration = 0.3  # 婚姻線アニメーション秒数（animate-flow）
+child_line_duration    = 0.8  # 親子線アニメーション秒数（animate-flow）
+appear_duration  = 0.4  # フェードイン秒数（0.0で瞬間表示）（animate-flow）
+pause_duration   = 0.6  # シーン間の静止秒数（animate-flow）
 final_pause    = 2.0  # 最後の全体表示秒数（animate-flow）
 scene_duration = 2.0  # 各シーンの表示秒数（animate）
