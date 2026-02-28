@@ -16,7 +16,8 @@ from pathlib import Path
 class ColorConfig:
     """描画色の設定（和色）。"""
 
-    background: tuple[int, int, int] = (245, 240, 232)    # 生成色（きなりいろ）
+    background_image: str | None = None                    # 背景画像パス（Noneで透明/単色）
+    background: tuple[int, int, int] | None = None         # 背景色（background_imageが優先）
     male_fill: tuple[int, int, int] = (193, 216, 236)      # 白藍（しらあい）
     female_fill: tuple[int, int, int] = (253, 239, 242)    # 桜色（さくらいろ）
     male_border: tuple[int, int, int] = (46, 79, 111)      # 藍色（あいいろ）
@@ -64,7 +65,6 @@ class AppConfig:
 # ---------------------------------------------------------------------------
 
 _RGB_KEYS = (
-    "background",
     "male_fill",
     "female_fill",
     "male_border",
@@ -108,6 +108,18 @@ def _validate_rgb(value: object, key: str) -> tuple[int, int, int]:
 
 def _build_colors(data: dict[str, object]) -> ColorConfig:
     cfg = ColorConfig()
+    if "background_image" in data:
+        val = data["background_image"]
+        if not isinstance(val, str):
+            print(
+                "設定エラー: style.colors.background_image は文字列（ファイルパス）で指定してください",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        cfg.background_image = val
+    # background は [R, G, B] で指定すると不透明、省略すると透明（None）
+    if "background" in data:
+        cfg.background = _validate_rgb(data["background"], "style.colors.background")
     for key in _RGB_KEYS:
         if key in data:
             setattr(cfg, key, _validate_rgb(data[key], f"style.colors.{key}"))

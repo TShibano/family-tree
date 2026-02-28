@@ -164,7 +164,18 @@ def _format_label(person: Person) -> str:
     return f"{person.name}\n{person.birth_date}"
 
 
-def build_graph(family: Family) -> graphviz.Digraph:
+def _bgcolor(background_color: tuple[int, int, int] | None) -> str:
+    """背景色を Graphviz の bgcolor 文字列に変換する。"""
+    if background_color is None:
+        return "transparent"
+    r, g, b = background_color
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def build_graph(
+    family: Family,
+    background_color: tuple[int, int, int] | None = None,
+) -> graphviz.Digraph:
     """Family データから Graphviz の Digraph オブジェクトを生成する。"""
     generations = compute_generations(family)
 
@@ -175,6 +186,7 @@ def build_graph(family: Family) -> graphviz.Digraph:
             "splines": "polyline",
             "nodesep": "0.8",
             "ranksep": "1.0",
+            "bgcolor": _bgcolor(background_color),
         },
         node_attr={
             "fontname": "Helvetica",
@@ -277,7 +289,11 @@ def build_graph(family: Family) -> graphviz.Digraph:
     return dot
 
 
-def build_graph_with_persons(family: Family, visible_ids: set[int]) -> graphviz.Digraph:
+def build_graph_with_persons(
+    family: Family,
+    visible_ids: set[int],
+    background_color: tuple[int, int, int] | None = None,
+) -> graphviz.Digraph:
     """指定された人物のみを含む Graphviz Digraph を生成する。"""
     generations = compute_generations(family)
 
@@ -288,6 +304,7 @@ def build_graph_with_persons(family: Family, visible_ids: set[int]) -> graphviz.
             "splines": "polyline",
             "nodesep": "0.8",
             "ranksep": "1.0",
+            "bgcolor": _bgcolor(background_color),
         },
         node_attr={
             "fontname": "Helvetica",
@@ -368,11 +385,15 @@ def build_graph_with_persons(family: Family, visible_ids: set[int]) -> graphviz.
     return dot
 
 
-def build_graph_up_to_generation(family: Family, max_gen: int) -> graphviz.Digraph:
+def build_graph_up_to_generation(
+    family: Family,
+    max_gen: int,
+    background_color: tuple[int, int, int] | None = None,
+) -> graphviz.Digraph:
     """指定した世代までの人物を含む Graphviz Digraph を生成する。"""
     generations = compute_generations(family)
     visible_ids = {pid for pid, gen in generations.items() if gen <= max_gen}
-    return build_graph_with_persons(family, visible_ids)
+    return build_graph_with_persons(family, visible_ids, background_color)
 
 
 def _get_couple_children(

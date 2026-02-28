@@ -40,9 +40,9 @@ def render(input_path: str, output_path: str, fmt: str, config_path: str | None)
     except CsvParseError as e:
         raise click.ClickException(str(e))
 
-    load_config(Path(config_path) if config_path else None)  # 将来の拡張用（renderは現状config不使用）
-    dot = build_graph(family)
-    result = render_graph(dot, output_path, fmt=fmt)
+    config = load_config(Path(config_path) if config_path else None)
+    dot = build_graph(family, background_color=config.colors.background)
+    result = render_graph(dot, output_path, fmt=fmt, config=config)
     click.echo(f"出力しました: {result}")
 
 

@@ -43,12 +43,12 @@ class TestGenerateSceneFrames:
     def test_frame_count_matches_scenes(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
         scenes = compute_scene_order(family)
-        frames = generate_scene_frames(family, tmp_path)
+        frames = generate_scene_frames(family, tmp_path, _fast_config())
         assert len(frames) == len(scenes)
 
     def test_frames_are_png_files(self, tmp_path: Path) -> None:
         family = _build_two_gen_family()
-        frames = generate_scene_frames(family, tmp_path)
+        frames = generate_scene_frames(family, tmp_path, _fast_config())
         for frame in frames:
             assert frame.exists()
             assert frame.stat().st_size > 0

@@ -13,6 +13,12 @@ from family_tree.layout_engine import EdgeLayout, GraphLayout, NodeLayout
 from family_tree.models import Family, Sex
 
 
+def _load_background(path: str, size: tuple[int, int]) -> Image.Image:
+    """背景画像を読み込み、キャンバスサイズに合わせてリサイズして返す（RGBA）。"""
+    img = Image.open(path).convert("RGBA")
+    return img.resize(size, Image.LANCZOS)
+
+
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """#RRGGBB を (R, G, B) に変換する。"""
     h = hex_color.lstrip("#")
@@ -110,6 +116,16 @@ class FrameDrawer:
         padding = config.dimensions.padding
         self.canvas_width = int(layout.width + padding * 2)
         self.canvas_height = int(layout.height + padding * 2)
+        # 背景をキャッシュ（毎フレーム読み込みを避ける）
+        canvas_size = (self.canvas_width, self.canvas_height)
+        if config.colors.background_image is not None:
+            self._cached_bg: Image.Image | None = _load_background(
+                config.colors.background_image, canvas_size
+            )
+        elif config.colors.background is not None:
+            self._cached_bg = Image.new("RGBA", canvas_size, (*config.colors.background, 255))
+        else:
+            self._cached_bg = None
 
     def draw_frame(
         self,
@@ -126,7 +142,10 @@ class FrameDrawer:
         Returns:
             描画されたフレーム画像
         """
-        img = Image.new("RGB", (self.canvas_width, self.canvas_height), self.config.colors.background)
+        if self._cached_bg is not None:
+            img = self._cached_bg.copy()
+        else:
+            img = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         # エッジを先に描画（ノードの下に表示）

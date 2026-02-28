@@ -11,7 +11,7 @@ from family_tree.config import AppConfig, AnimationConfig, ColorConfig, Dimensio
 class TestAppConfigDefaults:
     def test_default_colors(self) -> None:
         cfg = AppConfig()
-        assert cfg.colors.background == (245, 240, 232)
+        assert cfg.colors.background is None  # デフォルトは透明
         assert cfg.colors.male_fill == (193, 216, 236)
         assert cfg.colors.female_fill == (253, 239, 242)
         assert cfg.colors.male_border == (46, 79, 111)
@@ -45,7 +45,7 @@ class TestLoadConfigNone:
         monkeypatch.chdir(tmp_path)
         cfg = load_config(None)
         assert isinstance(cfg, AppConfig)
-        assert cfg.colors.background == (245, 240, 232)
+        assert cfg.colors.background is None  # デフォルトは透明
         assert cfg.dimensions.dpi == 432
         assert cfg.animation.fps == 24
 
@@ -96,7 +96,7 @@ class TestLoadConfigPartial:
         toml = tmp_path / "cfg.toml"
         toml.write_text("", encoding="utf-8")
         cfg = load_config(toml)
-        assert cfg.colors.background == (245, 240, 232)
+        assert cfg.colors.background is None  # デフォルトは透明
 
     def test_explicit_path(self, tmp_path: Path) -> None:
         """Path を明示指定した場合に正しく読み込む。"""

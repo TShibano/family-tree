@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 from moviepy import VideoClip
+from PIL import Image
 
 from family_tree.config import AppConfig
 from family_tree.frame_drawer import FrameDrawer
@@ -211,7 +212,7 @@ def create_flow_animation(
 
     # 全員表示のグラフでレイアウトを計算
     all_ids = set(family.persons.keys())
-    full_dot = build_graph_with_persons(family, all_ids)
+    full_dot = build_graph_with_persons(family, all_ids, config.colors.background)
     layout = extract_layout(full_dot, dpi=config.dimensions.dpi)
     scale_node_widths(layout, 1.2)
 
@@ -272,7 +273,13 @@ def create_flow_animation(
             visible_edge_list.append((edge, progress))
 
         img = drawer.draw_frame(visible_persons, visible_edge_list)
-        return np.array(img)
+        # MP4 (H.264) はアルファ非対応のため RGBA を RGB へ変換する
+        # 背景画像/色が設定済みならすでに不透明なので直接変換、透明なら白で合成
+        if config.colors.background_image is not None or config.colors.background is not None:
+            return np.array(img.convert("RGB"))
+        bg = Image.new("RGB", img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[3])
+        return np.array(bg)
 
     clip = VideoClip(make_frame, duration=total_duration)
     clip.write_videofile(

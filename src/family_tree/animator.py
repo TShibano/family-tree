@@ -15,7 +15,7 @@ from family_tree.models import Family
 from family_tree.renderer import render_graph
 
 
-def generate_scene_frames(family: Family, tmp_dir: Path) -> list[Path]:
+def generate_scene_frames(family: Family, tmp_dir: Path, config: AppConfig) -> list[Path]:
     """シーン順にフレーム画像（PNG）を累積的に生成する。
 
     Returns:
@@ -27,7 +27,7 @@ def generate_scene_frames(family: Family, tmp_dir: Path) -> list[Path]:
 
     for i, scene_ids in enumerate(scene_order):
         visible_ids.update(scene_ids)
-        dot = build_graph_with_persons(family, visible_ids)
+        dot = build_graph_with_persons(family, visible_ids, config.colors.background)
         frame_path = tmp_dir / f"scene_{i}.png"
         render_graph(dot, frame_path, fmt="png")
         frames.append(frame_path)
@@ -58,7 +58,7 @@ def create_animation(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        frames = generate_scene_frames(family, Path(tmp_dir))
+        frames = generate_scene_frames(family, Path(tmp_dir), config)
 
         if not frames:
             raise ValueError("フレームが生成されませんでした")
@@ -70,19 +70,22 @@ def create_animation(
 
         clips: list[ImageClip] = []
         for i, frame_path in enumerate(frames):
-            # 各フレームを白背景でターゲットサイズに統一
-            img = Image.open(frame_path)
-            if img.size != (target_w, target_h):
-                canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
-                offset_x = (target_w - img.width) // 2
-                offset_y = (target_h - img.height) // 2
-                canvas.paste(img, (offset_x, offset_y))
-                resized_path = Path(tmp_dir) / f"scene_{i}_resized.png"
-                canvas.save(str(resized_path))
-                img.close()
-                frame_path = resized_path
+            # 各フレームを背景画像/色でターゲットサイズに統一（MP4はアルファ非対応）
+            img = Image.open(frame_path).convert("RGBA")
+            if config.colors.background_image is not None:
+                raw_bg = Image.open(config.colors.background_image).convert("RGBA")
+                canvas = raw_bg.resize((target_w, target_h), Image.LANCZOS).convert("RGB")
+            elif config.colors.background is not None:
+                canvas = Image.new("RGB", (target_w, target_h), config.colors.background)
             else:
-                img.close()
+                canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
+            offset_x = (target_w - img.width) // 2
+            offset_y = (target_h - img.height) // 2
+            canvas.paste(img, (offset_x, offset_y), mask=img.split()[3])
+            composited_path = Path(tmp_dir) / f"scene_{i}_composited.png"
+            canvas.save(str(composited_path))
+            img.close()
+            frame_path = composited_path
 
             clip = ImageClip(str(frame_path)).with_duration(scene_duration)
             clips.append(clip)
