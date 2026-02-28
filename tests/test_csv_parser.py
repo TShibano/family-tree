@@ -308,16 +308,24 @@ class TestSampleCSV:
         family = parse_csv("examples/sample.csv")
         assert len(family.persons) == 12
 
-    def test_sample_csv_custom_colors(self) -> None:
-        """examples/sample.csv のカスタム色が正しく読み込まれる。"""
+    def test_sample_csv_colors_are_empty(self) -> None:
+        """examples/sample.csv の色カラムは空（デフォルト色を使用）。"""
         family = parse_csv("examples/sample.csv")
-        # ID=1 (山田太郎) はカスタム色が設定されている
         taro = family.get_person(1)
         assert taro is not None
-        assert taro.fill_color == "#D4A853"
-        assert taro.border_color == "#8B6914"
-        # ID=3 (山田一郎) は色指定なし
+        assert taro.fill_color is None
+        assert taro.border_color is None
+
+    def test_sample_csv_groups(self) -> None:
+        """examples/sample.csv のグループが正しく読み込まれる。"""
+        family = parse_csv("examples/sample.csv")
+        # 山田太郎(1) と 山田花子(2) は同じグループ "1"
+        taro = family.get_person(1)
+        hanako = family.get_person(2)
+        assert taro is not None and taro.group == "1"
+        assert hanako is not None and hanako.group == "1"
+        # 山田一郎(3) と 山田美咲(4) は同じグループ "2"
         ichiro = family.get_person(3)
-        assert ichiro is not None
-        assert ichiro.fill_color is None
-        assert ichiro.border_color is None
+        misaki = family.get_person(4)
+        assert ichiro is not None and ichiro.group == "2"
+        assert misaki is not None and misaki.group == "2"

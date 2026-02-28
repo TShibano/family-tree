@@ -9,6 +9,7 @@ from family_tree.models import Family, Person, Sex
 
 REQUIRED_COLUMNS = {"id", "name", "birth_date", "sex", "parent_ids", "spouse_id"}
 COLOR_COLUMNS = {"fill_color", "border_color"}
+GROUP_COLUMNS = {"group"}
 
 
 class CsvParseError(Exception):
@@ -40,7 +41,7 @@ def parse_csv(path: str | Path) -> Family:
         headers = set(reader.fieldnames)
         _validate_columns(headers)
 
-        extra_columns = headers - REQUIRED_COLUMNS - COLOR_COLUMNS
+        extra_columns = headers - REQUIRED_COLUMNS - COLOR_COLUMNS - GROUP_COLUMNS
         rows = list(reader)
 
     persons = _parse_rows(rows, extra_columns)
@@ -120,6 +121,9 @@ def _parse_row(row: dict[str, str], extra_columns: set[str]) -> Person:
     if border_color_str:
         border_color = _validate_hex_color(border_color_str, "border_color")
 
+    group_str = (row.get("group") or "").strip()
+    group: str | None = group_str if group_str else None
+
     metadata: dict[str, str] = {}
     for col in extra_columns:
         value = row.get(col, "")
@@ -135,6 +139,7 @@ def _parse_row(row: dict[str, str], extra_columns: set[str]) -> Person:
         spouse_id=spouse_id,
         fill_color=fill_color,
         border_color=border_color,
+        group=group,
         metadata=metadata,
     )
 

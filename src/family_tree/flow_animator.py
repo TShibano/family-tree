@@ -132,13 +132,44 @@ def _build_comb_child_edge(
     return [EdgeLayout(tail=couple_key, head=str(child_id), points=points)]
 
 
+def _collect_groups(
+    family: Family,
+) -> tuple[list[str], dict[str, list[Person]]]:
+    """CSVの登場順を維持しながら、グループ別に人物をまとめる。
+
+    group 未設定の人物は "__solo_{id}__" という内部キーで個別グループ扱い。
+
+    Returns:
+        (groups_order, groups_map)
+        - groups_order: グループキーの登場順リスト
+        - groups_map:   グループキー -> 人物リスト
+    """
+    groups_order: list[str] = []
+    groups_map: dict[str, list[Person]] = {}
+    for person in family.persons.values():
+        key = person.group if person.group else f"__solo_{person.id}__"
+        if key not in groups_map:
+            groups_order.append(key)
+            groups_map[key] = []
+        groups_map[key].append(person)
+    return groups_order, groups_map
+
+
 def build_action_sequence(
     family: Family,
     layout: GraphLayout,
     line_duration: float = 0.5,
     pause_duration: float = 0.3,
 ) -> list[AnimAction]:
-    """CSVの行順に1人ずつアニメーションアクション列を構築する。
+    """グループ単位でアニメーションアクション列を構築する。
+
+    各グループに対して:
+      1. APPEAR   : グループ全員を同時瞬間表示
+      2. DRAW_LINE: 親子線（両親が表示済みの場合、グループ全員分まとめて）
+      3. DRAW_LINE: 婚姻線（配偶者が表示済みの場合、グループ全員分まとめて）
+      4. PAUSE    : 静止
+
+    group 未設定の人物は1人ずつ個別グループとして処理する。
 
     Returns:
         AnimAction のリスト（時系列順）
@@ -146,46 +177,59 @@ def build_action_sequence(
     actions: list[AnimAction] = []
     shown: set[int] = set()
 
-    for person in family.persons.values():
-        pid = person.id
+    groups_order, groups_map = _collect_groups(family)
 
-        # この人物を表示
+    for group_key in groups_order:
+        persons_in_group = groups_map[group_key]
+
+        # 1. APPEAR（グループ全員を同時瞬間表示）
+        group_ids = [p.id for p in persons_in_group]
         actions.append(
             AnimAction(
                 action_type=ActionType.APPEAR,
-                duration=0.0,  # 瞬間表示
-                new_person_ids=[pid],
+                duration=0.0,
+                new_person_ids=group_ids,
             )
         )
-        shown.add(pid)
+        shown.update(group_ids)
 
-        # 関連する線をアニメーション
-        edges_to_animate: list[EdgeLayout] = []
-
-        # 配偶者との婚姻線（配偶者が既に表示済みの場合）
-        if person.spouse_id is not None and person.spouse_id in shown:
-            marriage_edges = _get_marriage_edges_toward_center(layout, pid, person.spouse_id)
-            edges_to_animate.extend(marriage_edges)
-
-        # 親からの親子線（両親が既に表示済みの場合）
-        if person.parent_ids:
-            parents_shown = all(p in shown for p in person.parent_ids)
-            if parents_shown:
+        # 2. DRAW_LINE: 親子線（グループ全員分をまとめて1アクション）
+        child_edges: list[EdgeLayout] = []
+        for person in persons_in_group:
+            if person.parent_ids and all(pid in shown for pid in person.parent_ids):
                 p1 = person.parent_ids[0]
-                p2 = person.parent_ids[1] if len(person.parent_ids) > 1 else person.parent_ids[0]
-                comb_edges = _build_comb_child_edge(layout, p1, p2, pid)
-                edges_to_animate.extend(comb_edges)
-
-        if edges_to_animate:
+                p2 = person.parent_ids[1] if len(person.parent_ids) > 1 else p1
+                child_edges.extend(_build_comb_child_edge(layout, p1, p2, person.id))
+        if child_edges:
             actions.append(
                 AnimAction(
                     action_type=ActionType.DRAW_LINE,
                     duration=line_duration,
-                    anim_edges=edges_to_animate,
+                    anim_edges=child_edges,
                 )
             )
 
-        # シーン間の静止
+        # 3. DRAW_LINE: 婚姻線（同グループ内の重複を除去）
+        marriage_edges: list[EdgeLayout] = []
+        processed_marriages: set[tuple[int, int]] = set()
+        for person in persons_in_group:
+            if person.spouse_id is not None and person.spouse_id in shown:
+                pair = (min(person.id, person.spouse_id), max(person.id, person.spouse_id))
+                if pair not in processed_marriages:
+                    processed_marriages.add(pair)
+                    marriage_edges.extend(
+                        _get_marriage_edges_toward_center(layout, person.id, person.spouse_id)
+                    )
+        if marriage_edges:
+            actions.append(
+                AnimAction(
+                    action_type=ActionType.DRAW_LINE,
+                    duration=line_duration,
+                    anim_edges=marriage_edges,
+                )
+            )
+
+        # 4. PAUSE
         actions.append(
             AnimAction(
                 action_type=ActionType.PAUSE,

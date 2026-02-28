@@ -25,6 +25,7 @@ class Person:
     spouse_id: int | None = None
     fill_color: str | None = None
     border_color: str | None = None
+    group: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
 
 
