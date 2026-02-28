@@ -165,10 +165,11 @@ def build_action_sequence(
     """グループ単位でアニメーションアクション列を構築する。
 
     各グループに対して:
-      1. APPEAR   : グループ全員を同時フェードイン（appear_duration 秒）
-      2. DRAW_LINE: 親子線（両親が表示済みの場合、グループ全員分まとめて）
-      3. DRAW_LINE: 婚姻線（配偶者が表示済みの場合、グループ全員分まとめて）
-      4. PAUSE    : 静止
+      1. APPEAR   : standalone（親がいない・親が未表示）を同時フェードイン
+      2. DRAW_LINE: 親子線（親が表示済みの children 全員分をまとめて）
+      3. APPEAR   : children（親子線の後に登場）
+      4. DRAW_LINE: 婚姻線（配偶者が表示済みの場合、グループ全員分まとめて）
+      5. PAUSE    : 静止
 
     group 未設定の人物は1人ずつ個別グループとして処理する。
 
@@ -183,24 +184,33 @@ def build_action_sequence(
     for group_key in groups_order:
         persons_in_group = groups_map[group_key]
 
-        # 1. APPEAR（グループ全員を同時フェードイン）
-        group_ids = [p.id for p in persons_in_group]
-        actions.append(
-            AnimAction(
-                action_type=ActionType.APPEAR,
-                duration=appear_duration,
-                new_person_ids=group_ids,
-            )
-        )
-        shown.update(group_ids)
+        # 親が全員表示済みかどうかでメンバーを分類
+        standalone = [
+            p for p in persons_in_group
+            if not (p.parent_ids and all(pid in shown for pid in p.parent_ids))
+        ]
+        children = [
+            p for p in persons_in_group
+            if p.parent_ids and all(pid in shown for pid in p.parent_ids)
+        ]
 
-        # 2. DRAW_LINE: 親子線（グループ全員分をまとめて1アクション）
+        # 1. APPEAR: standalone（親なし・親が未表示の人）
+        if standalone:
+            actions.append(
+                AnimAction(
+                    action_type=ActionType.APPEAR,
+                    duration=appear_duration,
+                    new_person_ids=[p.id for p in standalone],
+                )
+            )
+            shown.update(p.id for p in standalone)
+
+        # 2. DRAW_LINE: 親子線（children 全員分をまとめて1アクション）
         child_edges: list[EdgeLayout] = []
-        for person in persons_in_group:
-            if person.parent_ids and all(pid in shown for pid in person.parent_ids):
-                p1 = person.parent_ids[0]
-                p2 = person.parent_ids[1] if len(person.parent_ids) > 1 else p1
-                child_edges.extend(_build_comb_child_edge(layout, p1, p2, person.id))
+        for person in children:
+            p1 = person.parent_ids[0]
+            p2 = person.parent_ids[1] if len(person.parent_ids) > 1 else p1
+            child_edges.extend(_build_comb_child_edge(layout, p1, p2, person.id))
         if child_edges:
             actions.append(
                 AnimAction(
@@ -210,7 +220,18 @@ def build_action_sequence(
                 )
             )
 
-        # 3. DRAW_LINE: 婚姻線（同グループ内の重複を除去）
+        # 3. APPEAR: children（親子線の後に登場）
+        if children:
+            actions.append(
+                AnimAction(
+                    action_type=ActionType.APPEAR,
+                    duration=appear_duration,
+                    new_person_ids=[p.id for p in children],
+                )
+            )
+            shown.update(p.id for p in children)
+
+        # 4. DRAW_LINE: 婚姻線（同グループ内の重複を除去）
         marriage_edges: list[EdgeLayout] = []
         processed_marriages: set[tuple[int, int]] = set()
         for person in persons_in_group:
@@ -230,7 +251,7 @@ def build_action_sequence(
                 )
             )
 
-        # 4. PAUSE
+        # 5. PAUSE
         actions.append(
             AnimAction(
                 action_type=ActionType.PAUSE,

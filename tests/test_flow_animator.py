@@ -205,32 +205,25 @@ class TestGroupedActionSequence:
         first_appear = appear_actions[0]
         assert set(first_appear.new_person_ids) == {1, 2}
 
-    def test_child_line_before_marriage_line(self) -> None:
-        """同グループ内で親子線アクションが婚姻線アクションより先に来る。"""
+    def test_child_appears_after_child_line(self) -> None:
+        """子ども（一郎）のセルは親子線描画の後に APPEAR する。"""
         family = _build_grouped_family()
         layout = _get_layout(family)
         actions = build_action_sequence(family, layout)
 
-        # グループ "2"（一郎）の処理: 親子線 → 婚姻線 の順を確認
-        # 一郎は親がいるので親子線あり、配偶者なしなので婚姻線なし
-        # グループ "1" は親なし・配偶者あり → 婚姻線のみ
-        draw_actions = [a for a in actions if a.action_type == ActionType.DRAW_LINE]
-        assert len(draw_actions) >= 2
-
-        # 婚姻線（group=1）はグループ"1"処理時。親子線（group=2）はグループ"2"処理時。
-        # グループ"1" の APPEAR の後にある DRAW_LINE は婚姻線
-        appear_indices = [i for i, a in enumerate(actions) if a.action_type == ActionType.APPEAR]
-        # group="1" の APPEAR は index 0 のはず
-        group1_appear_idx = appear_indices[0]
-        group2_appear_idx = appear_indices[1]
-        # group="1" 処理後の DRAW_LINE（婚姻線）が group="2" の APPEAR より前
-        draw_after_group1 = [
-            i
-            for i, a in enumerate(actions)
+        # 親子線 DRAW_LINE の index（tail が couple_ から始まる comb edge）
+        child_line_idx = next(
+            i for i, a in enumerate(actions)
             if a.action_type == ActionType.DRAW_LINE
-            and group1_appear_idx < i < group2_appear_idx
-        ]
-        assert len(draw_after_group1) == 1  # 婚姻線のみ（親子線なし）
+            and any(e.tail.startswith("couple_") for e in a.anim_edges)
+        )
+        # 一郎(3) の APPEAR の index
+        child_appear_idx = next(
+            i for i, a in enumerate(actions)
+            if a.action_type == ActionType.APPEAR
+            and 3 in a.new_person_ids
+        )
+        assert child_line_idx < child_appear_idx
 
     def test_no_duplicate_marriage_edges(self) -> None:
         """同グループ内の配偶者ペアで婚姻線が重複しない。"""
